@@ -32,14 +32,10 @@ import {
   ExternalLink, 
   Flame, 
   Settings,
-  TrendingUp
+  TrendingUp,
+  Upload,
+  FolderOpen
 } from 'lucide-react';
-
-// --- IMPORTATION DIRECTE DES LOGOS OFFICIELS DES BOOKMAKERS ---
-import melbetLogo from './assets/partners/melbet.png';
-import betwinnerLogo from './assets/partners/betwinner.png';
-import goldparisLogo from './assets/partners/goldparis.png';
-import betclicLogo from './assets/partners/betclic.png';
 
 // --- CONFIGURATION FIREBASE ---
 const firebaseConfig = {
@@ -69,7 +65,7 @@ interface AdminMember {
 interface PartnerBookmaker {
   id: string;
   name: string;
-  logoUrl: string;
+  logoUrl: string; // Stocke l'image importée depuis votre machine en Base64
   bonus: string;
   promoCode: string;
   url: string;
@@ -197,57 +193,63 @@ export default function App() {
 
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
-  // PARTENAIRES AVEC LES LOGOS IMPORTÉS DIRECTEMENT
-  const [partners, setPartners] = useState<PartnerBookmaker[]>([
-    {
-      id: 'melbet',
-      name: 'Melbet',
-      logoUrl: melbetLogo,
-      bonus: '+200% jusqu\'à 130 000 FCFA',
-      promoCode: 'LMPRO',
-      url: 'https://melbet.com',
-      odds1: '2.05',
-      oddsX: '3.45',
-      odds2: '3.80',
-      badge: 'TOP BONUS AFRIQUE'
-    },
-    {
-      id: 'betwinner',
-      name: 'Betwinner',
-      logoUrl: betwinnerLogo,
-      bonus: '+100% de bonus exclusif',
-      promoCode: 'LMPRO',
-      url: 'https://betwinner.com',
-      odds1: '2.08',
-      oddsX: '3.40',
-      odds2: '3.75',
-      badge: 'RECOMMANDÉ'
-    },
-    {
-      id: 'goldparis',
-      name: 'Goldparis',
-      logoUrl: goldparisLogo,
-      bonus: 'Pari Gratuit de Bienvenue',
-      promoCode: 'LMPRO',
-      url: 'https://goldparis.com',
-      odds1: '2.02',
-      oddsX: '3.50',
-      odds2: '3.90',
-      badge: 'EXCLUSIF CI'
-    },
-    {
-      id: 'betclic',
-      name: 'Betclic',
-      logoUrl: betclicLogo,
-      bonus: '1er pari remboursé jusqu\'à 100€',
-      promoCode: 'LMPRO',
-      url: 'https://betclic.com',
-      odds1: '2.00',
-      oddsX: '3.35',
-      odds2: '3.70',
-      badge: 'OFFICIEL'
+  // PARTENAIRES AVEC GESTION D'IMAGES IMPORTÉES DEPUIS LE PC
+  const [partners, setPartners] = useState<PartnerBookmaker[]>(() => {
+    const saved = localStorage.getItem('lmpro_partners');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
     }
-  ]);
+    return [
+      {
+        id: 'melbet',
+        name: 'Melbet',
+        logoUrl: '',
+        bonus: '+200% jusqu\'à 130 000 FCFA',
+        promoCode: 'LMPRO',
+        url: 'https://melbet.com',
+        odds1: '2.05',
+        oddsX: '3.45',
+        odds2: '3.80',
+        badge: 'TOP BONUS AFRIQUE'
+      },
+      {
+        id: 'betwinner',
+        name: 'Betwinner',
+        logoUrl: '',
+        bonus: '+100% de bonus exclusif',
+        promoCode: 'LMPRO',
+        url: 'https://betwinner.com',
+        odds1: '2.08',
+        oddsX: '3.40',
+        odds2: '3.75',
+        badge: 'RECOMMANDÉ'
+      },
+      {
+        id: 'goldparis',
+        name: 'Goldparis',
+        logoUrl: '',
+        bonus: 'Pari Gratuit de Bienvenue',
+        promoCode: 'LMPRO',
+        url: 'https://goldparis.com',
+        odds1: '2.02',
+        oddsX: '3.50',
+        odds2: '3.90',
+        badge: 'EXCLUSIF CI'
+      },
+      {
+        id: 'betclic',
+        name: 'Betclic',
+        logoUrl: '',
+        bonus: '1er pari remboursé jusqu\'à 100€',
+        promoCode: 'LMPRO',
+        url: 'https://betclic.com',
+        odds1: '2.00',
+        oddsX: '3.35',
+        odds2: '3.70',
+        badge: 'OFFICIEL'
+      }
+    ];
+  });
 
   const [adminNotification, setAdminNotification] = useState<string | null>(null);
 
@@ -319,9 +321,26 @@ export default function App() {
     }, 2500);
   };
 
+  // FONCTION MAGIQUE : OUVRE L'ACCÈS À LA MACHINE ET CHARGE L'IMAGE EN DIRECT
+  const handleUploadLogoFromPC = (partnerId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64Image = e.target?.result as string;
+      const updated = partners.map(p => p.id === partnerId ? { ...p, logoUrl: base64Image } : p);
+      setPartners(updated);
+      localStorage.setItem('lmpro_partners', JSON.stringify(updated));
+      triggerAdminAction(`Le logo de ${partnerId.toUpperCase()} a été importé avec succès depuis votre ordinateur !`);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleUpdatePartner = (id: string, newCode: string, newUrl: string) => {
     const updated = partners.map(p => p.id === id ? { ...p, promoCode: newCode, url: newUrl } : p);
     setPartners(updated);
+    localStorage.setItem('lmpro_partners', JSON.stringify(updated));
     triggerAdminAction(`Le partenaire ${id.toUpperCase()} a été mis à jour avec le code ${newCode} !`);
   };
 
@@ -557,15 +576,11 @@ export default function App() {
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 rounded-xl bg-[#081426] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden shadow-md">
-                            <img 
-                              src={partner.logoUrl} 
-                              alt={partner.name}
-                              className="w-full h-full object-contain"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none';
-                                (e.target as HTMLElement).parentElement!.innerHTML = `<span class="font-black text-xs text-amber-400">${partner.name.substring(0, 2).toUpperCase()}</span>`;
-                              }}
-                            />
+                            {partner.logoUrl ? (
+                              <img src={partner.logoUrl} alt={partner.name} className="w-full h-full object-contain" />
+                            ) : (
+                              <span className="font-black text-sm text-amber-400">{partner.name.substring(0, 2).toUpperCase()}</span>
+                            )}
                           </div>
                           <div>
                             <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300">
@@ -575,7 +590,6 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Cotes Flashscore */}
                         <div className="flex items-center gap-1.5 bg-[#081426] p-1.5 rounded-xl border border-[#162C50] text-[11px] font-mono">
                           <span className="px-2 py-1 bg-[#162C50] rounded text-white font-bold">{partner.odds1}</span>
                           <span className="px-2 py-1 bg-[#162C50] rounded text-[#94A3B8] font-bold">{partner.oddsX}</span>
@@ -687,51 +701,78 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* CONFIGURATION DES CODES PROMOS & LIENS */}
+                  {/* IMPORTATION DES LOGOS DEPUIS LA MACHINE (SUPER-ADMIN) */}
                   {isSuperAdmin && (
                     <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
-                      <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <Settings size={18} className="text-amber-400" /> Configuration de vos Codes Promo & Liens d'Affiliation
-                      </h3>
-                      <p className="text-xs text-[#94A3B8]">
-                        Personnalisez vos codes promo affichés aux utilisateurs et vos liens de redirection.
-                      </p>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h3 className="text-base font-bold text-white flex items-center gap-2">
+                            <FolderOpen size={18} className="text-[#00D68F]" /> Importer vos Logos depuis votre Ordinateur
+                          </h3>
+                          <p className="text-xs text-[#94A3B8]">
+                            Cliquez sur le bouton pour ouvrir l'Explorateur Windows et sélectionner le logo officiel sur votre PC.
+                          </p>
+                        </div>
+                      </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                         {partners.map((p) => (
-                          <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-3">
-                            <div className="flex items-center gap-2">
-                              <img src={p.logoUrl} alt="" className="w-5 h-5 object-contain" />
-                              <span className="font-bold text-white text-sm">{p.name}</span>
+                          <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-4">
+                            <div className="flex items-center justify-between">
+                              <span className="font-extrabold text-white text-sm">{p.name}</span>
+                              <div className="w-10 h-10 rounded-lg bg-[#0D1E38] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden">
+                                {p.logoUrl ? (
+                                  <img src={p.logoUrl} alt={p.name} className="w-full h-full object-contain" />
+                                ) : (
+                                  <span className="text-[10px] text-[#94A3B8]">Pas d'image</span>
+                                )}
+                              </div>
                             </div>
+
+                            {/* BOUTON QUI OUVRE L'ACCÈS À LA MACHINE WINDOWS */}
                             <div>
-                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Code Promo affiché :</label>
-                              <input
-                                type="text"
-                                defaultValue={p.promoCode}
-                                id={`code-${p.id}`}
-                                className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1.5 text-xs text-[#00D68F] font-mono font-bold outline-none focus:border-[#0066FF]"
-                              />
+                              <label className="w-full py-2.5 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#0066FF]/20">
+                                <Upload size={14} />
+                                <span>Choisir le logo sur mon PC</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleUploadLogoFromPC(p.id, e)}
+                                  className="hidden"
+                                />
+                              </label>
                             </div>
-                            <div>
-                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Lien d'affiliation officiel :</label>
-                              <input
-                                type="text"
-                                defaultValue={p.url}
-                                id={`url-${p.id}`}
-                                className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-[#0066FF]"
-                              />
+
+                            <div className="pt-2 border-t border-[#162C50] space-y-2">
+                              <div>
+                                <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Code Promo :</label>
+                                <input
+                                  type="text"
+                                  defaultValue={p.promoCode}
+                                  id={`code-${p.id}`}
+                                  className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1 text-xs text-[#00D68F] font-mono font-bold outline-none focus:border-[#0066FF]"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Lien d'affiliation officiel :</label>
+                                <input
+                                  type="text"
+                                  defaultValue={p.url}
+                                  id={`url-${p.id}`}
+                                  className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1 text-xs text-white font-mono outline-none focus:border-[#0066FF]"
+                                />
+                              </div>
+                              <button
+                                onClick={() => {
+                                  const newC = (document.getElementById(`code-${p.id}`) as HTMLInputElement).value;
+                                  const newU = (document.getElementById(`url-${p.id}`) as HTMLInputElement).value;
+                                  handleUpdatePartner(p.id, newC, newU);
+                                }}
+                                className="w-full py-1.5 bg-[#162C50] hover:bg-[#0066FF] text-white rounded-lg text-[11px] font-bold transition-colors"
+                              >
+                                Enregistrer le texte
+                              </button>
                             </div>
-                            <button
-                              onClick={() => {
-                                const newC = (document.getElementById(`code-${p.id}`) as HTMLInputElement).value;
-                                const newU = (document.getElementById(`url-${p.id}`) as HTMLInputElement).value;
-                                handleUpdatePartner(p.id, newC, newU);
-                              }}
-                              className="w-full py-1.5 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-lg text-xs font-bold transition-colors"
-                            >
-                              Enregistrer {p.name}
-                            </button>
                           </div>
                         ))}
                       </div>
@@ -982,12 +1023,12 @@ export default function App() {
                       {partners.map((p) => (
                         <tr key={p.id} className="hover:bg-[#081426]/60 transition-colors">
                           <td className="py-3.5 flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-[#081426] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden shrink-0">
-                              <img 
-                                src={p.logoUrl} 
-                                alt={p.name}
-                                className="w-full h-full object-contain"
-                              />
+                            <div className="w-9 h-9 rounded-lg bg-[#081426] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden shrink-0 shadow-md">
+                              {p.logoUrl ? (
+                                <img src={p.logoUrl} alt={p.name} className="w-full h-full object-contain" />
+                              ) : (
+                                <span className="font-black text-xs text-amber-400">{p.name.substring(0, 2).toUpperCase()}</span>
+                              )}
                             </div>
                             <div>
                               <span className="font-extrabold text-white text-xs block">{p.name}</span>
