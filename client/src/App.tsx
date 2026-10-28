@@ -26,7 +26,12 @@ import {
   UserPlus,
   Trash2,
   ShieldAlert,
-  Crown
+  Crown,
+  Gift,
+  Copy,
+  ExternalLink,
+  Flame,
+  Settings
 } from 'lucide-react';
 
 // --- CONFIGURATION FIREBASE ---
@@ -43,7 +48,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
-type PageId = 'dashboard' | 'matches' | 'analysis' | 'predictions' | 'history' | 'profile' | 'admin';
+type PageId = 'dashboard' | 'matches' | 'analysis' | 'predictions' | 'history' | 'partners' | 'profile' | 'admin';
 type AdminRole = 'SUPER_ADMIN' | 'ADMIN';
 
 interface AdminMember {
@@ -52,6 +57,16 @@ interface AdminMember {
   name: string;
   role: AdminRole;
   addedAt: string;
+}
+
+interface PartnerBookmaker {
+  id: string;
+  name: string;
+  bonus: string;
+  promoCode: string;
+  url: string;
+  color: string;
+  badge: string;
 }
 
 interface Match {
@@ -174,10 +189,58 @@ export default function App() {
   const [inputQuestion, setInputQuestion] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
+  // État de copie des codes promos
+  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+
+  // PARTENAIRES DE PARIS SPORTIFS (MODIFIABLES DANS L'ADMIN)
+  const [partners, setPartners] = useState<PartnerBookmaker[]>(() => {
+    const saved = localStorage.getItem('lmpro_partners');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [
+      {
+        id: 'melbet',
+        name: 'Melbet',
+        bonus: '+200% jusqu\'à 130 000 FCFA sur 1er dépôt',
+        promoCode: 'LMPRO',
+        url: 'https://melbet.com',
+        color: 'from-amber-500 to-yellow-600',
+        badge: 'TOP BONUS AFRIQUE'
+      },
+      {
+        id: 'betwinner',
+        name: 'Betwinner',
+        bonus: '+100% de bonus exclusif de bienvenue',
+        promoCode: 'LMPRO',
+        url: 'https://betwinner.com',
+        color: 'from-emerald-600 to-teal-700',
+        badge: 'RECOMMANDÉ'
+      },
+      {
+        id: 'goldparis',
+        name: 'Goldparis',
+        bonus: 'Paris Gratuits & Bonus VIP hebdomadaire',
+        promoCode: 'LMPRO',
+        url: 'https://goldparis.com',
+        color: 'from-yellow-500 to-amber-700',
+        badge: 'EXCLUSIF CI'
+      },
+      {
+        id: 'betclic',
+        name: 'Betclic',
+        bonus: '1er pari remboursé jusqu\'à 100€ / équivalent',
+        promoCode: 'LMPRO',
+        url: 'https://betclic.com',
+        color: 'from-rose-600 to-red-700',
+        badge: 'INTERNATIONAL'
+      }
+    ];
+  });
+
   // GESTION DU CONTRÔLE D'ACCÈS RBAC (ADMINISTRATION SÉCURISÉE)
   const [adminNotification, setAdminNotification] = useState<string | null>(null);
 
-  // Liste des administrateurs autorisés
   const [adminTeam, setAdminTeam] = useState<AdminMember[]>(() => {
     const saved = localStorage.getItem('lmpro_admin_team');
     if (saved) {
@@ -201,7 +264,6 @@ export default function App() {
   const userEmail = user?.email?.toLowerCase() || '';
   const userName = user?.displayName?.toLowerCase() || '';
 
-  // Christian est automatiquement reconnu Super-Admin
   const isSuperAdmin = user && (
     userName.includes('christian') || 
     userEmail.includes('christian') || 
@@ -238,6 +300,23 @@ export default function App() {
     setTimeout(() => {
       setAdminNotification(null);
     }, 3500);
+  };
+
+  // Copier le code promo avec retour visuel
+  const handleCopyCode = (id: string, code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCodeId(id);
+    setTimeout(() => {
+      setCopiedCodeId(null);
+    }, 2500);
+  };
+
+  // Modifier un code promo ou lien (Super-Admin)
+  const handleUpdatePartner = (id: string, newCode: string, newUrl: string) => {
+    const updated = partners.map(p => p.id === id ? { ...p, promoCode: newCode, url: newUrl } : p);
+    setPartners(updated);
+    localStorage.setItem('lmpro_partners', JSON.stringify(updated));
+    triggerAdminAction(`Le partenaire ${id.toUpperCase()} a été mis à jour avec le code ${newCode} !`);
   };
 
   const handleAddAdmin = (e: React.FormEvent) => {
@@ -283,7 +362,7 @@ export default function App() {
     setTimeout(() => {
       let reply = "";
       if (lowerQ.includes('jour') || lowerQ.includes('salut') || lowerQ.includes('hello')) {
-        reply = `Bonjour ! Sur ce choc ${home} vs ${away} en ${comp}, notre modèle estime 1.84 but attendu pour ${home} contre 1.18 pour ${away}. Que souhaitez-vous analyser ?`;
+        reply = `Bonjour ! Sur ce choc ${home} vs ${away} en ${comp}, notre modèle estime 1.84 but attendu pour ${home} contre 1.18 pour ${away}. N'oubliez pas d'utiliser nos codes promo partenaires (Melbet, Betwinner, Goldparis) pour maximiser vos gains !`;
       } else if (lowerQ.includes('qui') || lowerQ.includes('favori') || lowerQ.includes('gagn')) {
         reply = `D'après la modélisation de Poisson, ${home} est donné favori à domicile avec 48.2% de probabilité de victoire (Nul 27.1%, ${away} 24.7%). La Double Chance 1X est très solide.`;
       } else if (lowerQ.includes('but') || lowerQ.includes('over') || lowerQ.includes('score')) {
@@ -364,6 +443,7 @@ export default function App() {
               { id: 'matches', label: 'Matchs du jour', icon: CalendarDays },
               { id: 'analysis', label: 'Analyse Poisson', icon: LineChart },
               { id: 'predictions', label: 'Pronostics Pro', icon: Target },
+              { id: 'partners', label: 'Bonus & Partenaires', icon: Gift, highlight: true },
               { id: 'history', label: 'Historique Certifié', icon: History },
               { id: 'profile', label: 'Mon Profil', icon: User },
               { id: 'admin', label: 'Console Admin', icon: ShieldCheck, locked: !hasAdminAccess },
@@ -380,16 +460,20 @@ export default function App() {
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all ${
                     isActive
                       ? 'bg-[#0066FF] text-white shadow-md shadow-[#0066FF]/30'
-                      : 'text-[#94A3B8] hover:bg-[#0D1E38] hover:text-white'
+                      : item.highlight
+                        ? 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20'
+                        : 'text-[#94A3B8] hover:bg-[#0D1E38] hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <Icon size={18} />
                     <span>{item.label}</span>
                   </div>
-                  {item.locked && (
+                  {item.locked ? (
                     <Lock size={12} className="text-[#94A3B8]" title="Accès Administrateur requis" />
-                  )}
+                  ) : item.highlight ? (
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  ) : null}
                 </button>
               );
             })}
@@ -430,14 +514,98 @@ export default function App() {
         <div className="px-6 py-2.5 flex items-center justify-between text-xs border-b bg-[#00D68F]/10 border-[#00D68F]/20 text-[#00D68F]">
           <div className="flex items-center gap-2">
             <Radio size={16} className="animate-pulse text-[#00D68F]" />
-            <span><strong className="text-white">LMPRO MULTI-CHAMPIONNATS :</strong> Accès direct aux 8 plus grandes ligues</span>
+            <span><strong className="text-white">LMPRO MONÉTISATION :</strong> Partenariats Melbet, Betwinner, Goldparis & Betclic actifs</span>
           </div>
           <span className="font-mono bg-[#162C50] text-white px-2 py-0.5 rounded text-[10px] font-bold">
-            PRO V2.0
+            PRO V2.1
           </span>
         </div>
 
         <div className="p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+
+          {/* VUE : BONUS & PARTENAIRES OFFICIELS (NOUVEAU !) */}
+          {currentPage === 'partners' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                    <Gift className="text-amber-400" /> Partenaires Officiels & Codes Promo
+                  </h1>
+                  <p className="text-xs text-[#94A3B8] mt-1">
+                    Profitez des meilleurs bonus de bienvenue exclusifs négociés par LMPRO pour vos paris sportifs.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-bold">
+                  <Flame size={14} className="text-amber-400" /> Bonus Vérifiés 2026
+                </div>
+              </div>
+
+              {/* Grille des 4 Partenaires */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {partners.map((partner) => (
+                  <div 
+                    key={partner.id}
+                    className="bg-[#0D1E38] border border-[#162C50] hover:border-amber-400/50 rounded-2xl p-6 flex flex-col justify-between transition-all space-y-5"
+                  >
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300">
+                            {partner.badge}
+                          </span>
+                          <h2 className="text-2xl font-black text-white mt-2">{partner.name}</h2>
+                        </div>
+                        <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${partner.color} flex items-center justify-center font-black text-white text-lg shadow-lg`}>
+                          {partner.name.substring(0, 2).toUpperCase()}
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-[#94A3B8] mt-3 font-medium">
+                        Offre exclusive : <strong className="text-white">{partner.bonus}</strong>
+                      </p>
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      {/* Bloc Code Promo avec Copie 1 Clic */}
+                      <div className="bg-[#081426] border border-[#162C50] p-3 rounded-xl flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">Code Promo Officiel :</span>
+                          <span className="text-base font-black text-[#00D68F] font-mono tracking-wider">{partner.promoCode}</span>
+                        </div>
+                        <button
+                          onClick={() => handleCopyCode(partner.id, partner.promoCode)}
+                          className="flex items-center gap-1.5 bg-[#162C50] hover:bg-[#0066FF] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        >
+                          {copiedCodeId === partner.id ? (
+                            <>
+                              <Check size={14} className="text-[#00D68F]" />
+                              <span className="text-[#00D68F]">Copié !</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={14} />
+                              <span>Copier</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Bouton d'inscription direct avec lien partenaire */}
+                      <a
+                        href={partner.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-3 bg-gradient-to-r from-[#0066FF] to-[#0052CC] hover:opacity-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#0066FF]/20"
+                      >
+                        <span>S'inscrire sur {partner.name} avec le Bonus</span>
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* VUE CONSOLE D'ADMINISTRATION PROTÉGÉE */}
           {currentPage === 'admin' && (
@@ -502,28 +670,72 @@ export default function App() {
                         🔄 Forcer Synchronisation
                       </button>
 
-                      {isSuperAdmin ? (
+                      {isSuperAdmin && (
                         <button 
                           onClick={() => triggerAdminAction("Cache mémoire purgé avec succès ! Prochain appel dirigé vers l'API.")}
                           className="bg-[#081426] hover:bg-[#162C50] text-[#94A3B8] hover:text-white border border-[#162C50] px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
                         >
                           🧹 Purger le Cache
                         </button>
-                      ) : (
-                        <span className="text-[10px] text-[#94A3B8] border border-[#162C50] px-3 py-2 rounded-xl bg-[#081426] cursor-not-allowed">
-                          🔒 Purge réservée au Super-Admin
-                        </span>
                       )}
                     </div>
                   </div>
 
-                  {/* AJOUT D'ADMINISTRATEURS DÉLÉGUÉS (RÉSERVÉ AU SUPER-ADMIN) */}
+                  {/* GESTION DES CODES PROMOS & LIENS D'AFFILIATION (RÉSERVÉ AU SUPER-ADMIN) */}
+                  {isSuperAdmin && (
+                    <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <Settings size={18} className="text-amber-400" /> Configuration de vos Codes Promo & Liens Partenaires
+                      </h3>
+                      <p className="text-xs text-[#94A3B8]">
+                        Personnalisez vos codes d'affiliation (Melbet, Betwinner, Goldparis, Betclic) et vos liens de redirection.
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        {partners.map((p) => (
+                          <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-3">
+                            <span className="font-bold text-white text-sm block">{p.name}</span>
+                            <div>
+                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Code Promo affiché :</label>
+                              <input
+                                type="text"
+                                defaultValue={p.promoCode}
+                                id={`code-${p.id}`}
+                                className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1.5 text-xs text-[#00D68F] font-mono font-bold outline-none focus:border-[#0066FF]"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Lien d'affiliation officiel :</label>
+                              <input
+                                type="text"
+                                defaultValue={p.url}
+                                id={`url-${p.id}`}
+                                className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-[#0066FF]"
+                              />
+                            </div>
+                            <button
+                              onClick={() => {
+                                const newC = (document.getElementById(`code-${p.id}`) as HTMLInputElement).value;
+                                const newU = (document.getElementById(`url-${p.id}`) as HTMLInputElement).value;
+                                handleUpdatePartner(p.id, newC, newU);
+                              }}
+                              className="w-full py-1.5 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-lg text-xs font-bold transition-colors"
+                            >
+                              Enregistrer {p.name}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* AJOUT D'ADMINISTRATEURS DÉLÉGUÉS */}
                   {isSuperAdmin && (
                     <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-5">
                       <div className="flex justify-between items-center">
                         <div>
                           <h3 className="text-base font-bold text-white flex items-center gap-2">
-                            <UserPlus size={18} className="text-[#00D68F]" /> Gestion des Administrateurs & Délégués
+                            <UserPlus size={18} className="text-[#00D68F]" /> Gestion des Administrateurs Délégués
                           </h3>
                           <p className="text-xs text-[#94A3B8]">
                             Ajoutez des collaborateurs pour vous aider à gérer la plateforme avec des privilèges restreints.
@@ -633,42 +845,6 @@ export default function App() {
                       <span className="text-[10px] text-[#94A3B8]">Gemini 1.5 Flash</span>
                     </div>
                   </div>
-
-                  {/* Journal des Synchronisations Récentes */}
-                  <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                        📋 Journal des Transactions Récentes (Derniers Logs)
-                      </h3>
-                      <span className="text-[10px] text-[#94A3B8] font-mono">Dernière vérif : à l'instant</span>
-                    </div>
-
-                    <div className="bg-[#081426] border border-[#162C50] rounded-xl overflow-hidden font-mono text-[11px]">
-                      <div className="divide-y divide-[#162C50]">
-                        <div className="p-3 flex items-center justify-between text-slate-300">
-                          <span className="text-[#00D68F]">[10:00:15] [API_SYNC_OK]</span>
-                          <span>9 rencontres chargées avec succès pour 8 championnats majeurs.</span>
-                          <span className="text-[#94A3B8]">HTTP 200 (84ms)</span>
-                        </div>
-                        <div className="p-3 flex items-center justify-between text-slate-300">
-                          <span className="text-[#0066FF]">[09:45:00] [CACHE_HIT]</span>
-                          <span>Requête /v4/matches servie depuis la mémoire tampon sans appel API.</span>
-                          <span className="text-[#94A3B8]">0ms (Économie quota)</span>
-                        </div>
-                        <div className="p-3 flex items-center justify-between text-slate-300">
-                          <span className="text-[#00D68F]">[09:30:22] [AI_ENGINE_OK]</span>
-                          <span>Assistant tactique initialisé avec succès sur Google AI Studio (Gemini).</span>
-                          <span className="text-[#94A3B8]">Modèle Flash actif</span>
-                        </div>
-                        <div className="p-3 flex items-center justify-between text-slate-300">
-                          <span className="text-amber-400">[09:00:01] [AUDIT_LOCKED]</span>
-                          <span>Contrôle RBAC : droits du Super-Admin Christian validés.</span>
-                          <span className="text-[#00D68F]">100% Intègre</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
                 </div>
               )}
 
@@ -683,12 +859,20 @@ export default function App() {
                   <h1 className="text-2xl font-black text-white tracking-tight">Plateforme d'Analyse Footballistique</h1>
                   <p className="text-xs text-[#94A3B8] mt-1">« Analysez mieux. Comprenez le football. »</p>
                 </div>
-                <button
-                  onClick={() => setIsAiOpen(true)}
-                  className="flex items-center gap-2 bg-gradient-to-r from-[#0066FF] to-[#00D68F] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-[#0066FF]/20 hover:opacity-95 transition-all"
-                >
-                  <Sparkles size={14} /> Demander à l'Analyste IA
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage('partners')}
+                    className="flex items-center gap-1.5 bg-amber-400/20 border border-amber-400/40 text-amber-300 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-amber-400/30 transition-all"
+                  >
+                    <Gift size={14} className="text-amber-400" /> Bonus Partenaires
+                  </button>
+                  <button
+                    onClick={() => setIsAiOpen(true)}
+                    className="flex items-center gap-2 bg-gradient-to-r from-[#0066FF] to-[#00D68F] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-[#0066FF]/20 hover:opacity-95 transition-all"
+                  >
+                    <Sparkles size={14} /> Demander à l'Analyste IA
+                  </button>
+                </div>
               </div>
 
               {/* BARRE DE SÉLECTION DE CHAMPIONNATS */}
@@ -717,6 +901,7 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Matchs du jour filtrés */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -725,52 +910,46 @@ export default function App() {
                   <span className="text-xs text-[#00D68F] font-bold">{filteredMatches.length} match(s) disponible(s)</span>
                 </div>
 
-                {filteredMatches.length === 0 ? (
-                  <div className="py-12 text-center text-[#94A3B8] text-xs">
-                    Aucun match répertorié pour ce championnat aujourd'hui. Sélectionnez un autre championnat ci-dessus.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredMatches.map((m) => (
-                      <div 
-                        key={m.id}
-                        onClick={() => {
-                          setSelectedMatch(m);
-                          setCurrentPage('analysis');
-                        }}
-                        className="bg-[#081426] border border-[#162C50] hover:border-[#0066FF] rounded-xl p-5 cursor-pointer transition-all flex flex-col justify-between"
-                      >
-                        <div className="flex justify-between text-xs text-[#94A3B8] pb-2 border-b border-[#162C50]">
-                          <span className="font-semibold truncate max-w-[150px]">{m.competition.name}</span>
-                          <span className="font-mono bg-[#162C50] px-2 py-0.5 rounded text-[10px] text-white">
-                            {m.status === 'IN_PLAY' ? 'DIRECT' : new Date(m.utcDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-
-                        <div className="py-4 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {m.homeTeam.crest && <img src={m.homeTeam.crest} alt="" className="w-5 h-5 object-contain" />}
-                              <span className="text-xs font-bold text-white truncate max-w-[160px]">{m.homeTeam.name}</span>
-                            </div>
-                            <span className="font-mono font-bold text-sm text-white">{m.score?.fullTime?.home ?? '-'}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {m.awayTeam.crest && <img src={m.awayTeam.crest} alt="" className="w-5 h-5 object-contain" />}
-                              <span className="text-xs font-bold text-white truncate max-w-[160px]">{m.awayTeam.name}</span>
-                            </div>
-                            <span className="font-mono font-bold text-sm text-white">{m.score?.fullTime?.away ?? '-'}</span>
-                          </div>
-                        </div>
-
-                        <button className="w-full py-2 bg-[#0066FF]/10 text-[#0066FF] hover:bg-[#0066FF] hover:text-white rounded-lg text-xs font-bold transition-colors">
-                          Analyser ce match →
-                        </button>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredMatches.map((m) => (
+                    <div 
+                      key={m.id}
+                      onClick={() => {
+                        setSelectedMatch(m);
+                        setCurrentPage('analysis');
+                      }}
+                      className="bg-[#081426] border border-[#162C50] hover:border-[#0066FF] rounded-xl p-5 cursor-pointer transition-all flex flex-col justify-between"
+                    >
+                      <div className="flex justify-between text-xs text-[#94A3B8] pb-2 border-b border-[#162C50]">
+                        <span className="font-semibold truncate max-w-[150px]">{m.competition.name}</span>
+                        <span className="font-mono bg-[#162C50] px-2 py-0.5 rounded text-[10px] text-white">
+                          {m.status === 'IN_PLAY' ? 'DIRECT' : new Date(m.utcDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      <div className="py-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {m.homeTeam.crest && <img src={m.homeTeam.crest} alt="" className="w-5 h-5 object-contain" />}
+                            <span className="text-xs font-bold text-white truncate max-w-[160px]">{m.homeTeam.name}</span>
+                          </div>
+                          <span className="font-mono font-bold text-sm text-white">{m.score?.fullTime?.home ?? '-'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {m.awayTeam.crest && <img src={m.awayTeam.crest} alt="" className="w-5 h-5 object-contain" />}
+                            <span className="text-xs font-bold text-white truncate max-w-[160px]">{m.awayTeam.name}</span>
+                          </div>
+                          <span className="font-mono font-bold text-sm text-white">{m.score?.fullTime?.away ?? '-'}</span>
+                        </div>
+                      </div>
+
+                      <button className="w-full py-2 bg-[#0066FF]/10 text-[#0066FF] hover:bg-[#0066FF] hover:text-white rounded-lg text-xs font-bold transition-colors">
+                        Analyser ce match →
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -801,6 +980,22 @@ export default function App() {
                     <h2 className="text-sm md:text-base font-bold text-white">{selectedMatch.awayTeam.name}</h2>
                   </div>
                 </div>
+              </div>
+
+              {/* BANDEAU MONÉTISATION PARTENAIRE SUR LE MATCH */}
+              <div className="bg-gradient-to-r from-amber-500/10 via-[#0D1E38] to-amber-500/10 border border-amber-500/30 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <Flame size={18} className="text-amber-400 shrink-0" />
+                  <span>
+                    Misez sur <strong className="text-white">{selectedMatch.homeTeam.name} vs {selectedMatch.awayTeam.name}</strong> avec le code <strong className="text-[#00D68F] font-mono">LMPRO</strong> et recevez jusqu'à <strong>130 000 FCFA</strong> de bonus !
+                  </span>
+                </div>
+                <button
+                  onClick={() => setCurrentPage('partners')}
+                  className="bg-amber-400 hover:bg-amber-300 text-black font-bold px-3 py-1.5 rounded-lg whitespace-nowrap text-xs transition-colors"
+                >
+                  Voir les 4 Bookmakers →
+                </button>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -882,6 +1077,20 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Bandeau d'affiliation dans les pronostics */}
+              <div className="bg-[#0D1E38] border border-amber-400/30 p-4 rounded-xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <Gift size={16} className="text-amber-400 shrink-0" />
+                  <span>Utilisez le code promo <strong className="text-[#00D68F] font-mono">LMPRO</strong> sur Melbet, Betwinner, Goldparis ou Betclic pour doubler vos dépôts !</span>
+                </div>
+                <button
+                  onClick={() => setCurrentPage('partners')}
+                  className="text-amber-400 font-bold hover:underline whitespace-nowrap text-xs ml-3"
+                >
+                  Voir les offres →
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
