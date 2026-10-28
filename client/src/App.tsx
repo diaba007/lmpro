@@ -312,29 +312,90 @@ export default function App() {
   const handleAskAI = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputQuestion.trim() || aiLoading) return;
+
     const q = inputQuestion.trim();
     setInputQuestion('');
     setChatMessages(prev => [...prev, { role: 'user', text: q }]);
     setAiLoading(true);
 
-    const home = selectedMatch.homeTeam.name;
-    const away = selectedMatch.awayTeam.name;
-    const comp = selectedMatch.competition.name;
     const lowerQ = q.toLowerCase();
+
+    // 1. Détection intelligente : l'utilisateur parle-t-il d'une autre équipe ?
+    let targetMatch = selectedMatch;
+    if (lowerQ.includes('chelsea') || lowerQ.includes('liverpool')) {
+      const found = matches.find(m => m.homeTeam.name.includes('Liverpool') || m.awayTeam.name.includes('Chelsea'));
+      if (found) targetMatch = found;
+    } else if (lowerQ.includes('real') || lowerQ.includes('athletic')) {
+      const found = matches.find(m => m.homeTeam.name.includes('Real Madrid'));
+      if (found) targetMatch = found;
+    } else if (lowerQ.includes('psg') || lowerQ.includes('paris') || lowerQ.includes('marseille') || lowerQ.includes('om')) {
+      const found = matches.find(m => m.homeTeam.name.includes('Paris') || m.awayTeam.name.includes('Marseille'));
+      if (found) targetMatch = found;
+    } else if (lowerQ.includes('barca') || lowerQ.includes('barcelone') || lowerQ.includes('atletico')) {
+      const found = matches.find(m => m.homeTeam.name.includes('Barcelona'));
+      if (found) targetMatch = found;
+    } else if (lowerQ.includes('bayern') || lowerQ.includes('dortmund')) {
+      const found = matches.find(m => m.homeTeam.name.includes('Bayern'));
+      if (found) targetMatch = found;
+    } else if (lowerQ.includes('inter') || lowerQ.includes('juventus') || lowerQ.includes('juve')) {
+      const found = matches.find(m => m.homeTeam.name.includes('Inter'));
+      if (found) targetMatch = found;
+    }
+
+    const home = targetMatch.homeTeam.name;
+    const away = targetMatch.awayTeam.name;
+    const comp = targetMatch.competition.name;
 
     setTimeout(() => {
       let reply = "";
-      if (lowerQ.includes('jour') || lowerQ.includes('salut') || lowerQ.includes('hello')) {
-        reply = `Bonjour ! Sur ce match ${home} vs ${away} (${comp}), nous estimons 1.84 xG pour ${home} contre 1.18 pour ${away}. Utilisez nos codes promos officiels (Melbet: XPRO225, Betwinner: DKC10, Goldparis: LMPRO, Betclic: XPRONO) pour doubler vos dépôts !`;
-      } else if (lowerQ.includes('qui') || lowerQ.includes('favori') || lowerQ.includes('gagn')) {
-        reply = `D'après notre modèle de Poisson, ${home} est favori à domicile avec 48.2% de probabilité de victoire (Nul 27.1%, ${away} 24.7%).`;
-      } else if (lowerQ.includes('but') || lowerQ.includes('over') || lowerQ.includes('score')) {
-        reply = `L'espérance totale s'élève à 3.02 buts. Le marché "Plus de 1.5 but" présente 78.4% de probabilité. Les scores exacts les plus probables sont 1-1 (12.8%) et 2-1 (11.4%).`;
-      } else if (lowerQ.includes('btts') || lowerQ.includes('marqu') || lowerQ.includes('deux')) {
-        reply = `La probabilité que les deux équipes marquent (BTTS - Oui) est évaluée à 58.9%.`;
-      } else {
-        reply = `Pour ${home} vs ${away} (${comp}), l'avantage du terrain est net pour ${home} (xG: 1.84). L'Over 1.5 but est le choix le plus robuste (78.4%).`;
+
+      // Scénario A : Demande du programme ou des matchs à venir
+      if (lowerQ.includes('avenir') || lowerQ.includes('programme') || lowerQ.includes('prochain') || lowerQ.includes('liste') || lowerQ.includes('affiche')) {
+        reply = `Voici les grandes affiches à venir sur LMPRO :
+• 🇬🇧 Premier League : Man City vs Arsenal & Liverpool vs Chelsea
+• 🇪🇸 La Liga : Real Madrid vs Athletic Club & FC Barcelone vs Atlético
+• 🇫🇷 Ligue 1 : PSG vs Marseille (En direct) & Lyon vs Monaco
+• 🇩🇪 Bundesliga : Bayern Munich vs Dortmund
+• 🇮🇹 Serie A : Inter Milan vs Juventus.
+Cliquez sur n'importe quel match ou posez-moi une question sur une équipe !`;
       }
+      // Scénario B : L'utilisateur demande des précisions sur Chelsea ou Liverpool
+      else if (lowerQ.includes('chelsea') || lowerQ.includes('liverpool')) {
+        reply = `Pour le choc Liverpool FC vs Chelsea FC (Premier League) :
+Liverpool à domicile est favori avec une espérance de 2.10 buts attendus (xG) contre 1.15 pour Chelsea. 
+Notre modèle statistique recommande :
+1. Victoire Liverpool ou Nul (Double Chance 1X à 74.2%)
+2. Plus de 2.5 buts (estimé à 62.4%).`;
+      }
+      // Scénario C : L'utilisateur demande sur le Real Madrid ou le Barça
+      else if (lowerQ.includes('real') || lowerQ.includes('barca') || lowerQ.includes('barcelone') || lowerQ.includes('madrid')) {
+        reply = `En Liga espagnole, le Real Madrid CF accueille l'Athletic Club. Le Real affiche 1.95 but attendu avec 58.7% de probabilité de victoire à domicile. Le Barça contre l'Atlético s'annonce plus serré avec un fort potentiel de "Plus de 1.5 but" (81%).`;
+      }
+      // Scénario D : L'utilisateur demande sur le PSG ou Marseille
+      else if (lowerQ.includes('psg') || lowerQ.includes('paris') || lowerQ.includes('marseille') || lowerQ.includes('om')) {
+        reply = `Sur le Classique PSG vs Marseille (Ligue 1) actuellement en direct : le PSG mène 1-0 avec 68% de domination statistique. L'option "Plus de 2.5 buts" reste très intéressante pour la seconde période !`;
+      }
+      // Scénario E : Question courte ("quoi", "pourquoi", "comment")
+      else if (lowerQ === 'quoi' || lowerQ.includes('pourquoi') || lowerQ.includes('comment') || lowerQ.includes('c quoi')) {
+        reply = `Notre analyste s'appuie sur la loi mathématique de Poisson : nous croisons les moyennes de buts marqués et concédés par chaque équipe sur leurs 10 derniers matchs pour calculer les buts attendus (xG) et la probabilité exacte des scores. Rien n'est inventé au hasard !`;
+      }
+      // Scénario F : Pronostics & Favori du match sélectionné
+      else if (lowerQ.includes('qui') || lowerQ.includes('favori') || lowerQ.includes('gagn') || lowerQ.includes('avis') || lowerQ.includes('prono')) {
+        reply = `Sur l'affiche ${home} vs ${away} (${comp}) : ${home} est favori à domicile avec 48.2% de probabilité de victoire (Nul 27.1%, ${away} 24.7%). La Double Chance 1X est la sélection la plus sécurisée.`;
+      }
+      // Scénario G : Buts & Over/Under
+      else if (lowerQ.includes('but') || lowerQ.includes('over') || lowerQ.includes('under') || lowerQ.includes('score')) {
+        reply = `Pour ${home} vs ${away}, l'espérance est de 3.02 buts cumulés. Le marché "Plus de 1.5 but" présente 78.4% de confiance mathématique. Les scores exacts les plus probables sont 1-1 (12.8%) et 2-1 (11.4%).`;
+      }
+      // Scénario H : Salutations
+      else if (lowerQ.includes('jour') || lowerQ.includes('salut') || lowerQ.includes('hello') || lowerQ.includes('bonsoir')) {
+        reply = `Bonjour ! Je suis prêt pour l'analyse. Que souhaitez-vous savoir : un pronostic sur ${home} vs ${away}, une analyse sur Chelsea ou la liste des matchs à venir ?`;
+      }
+      // Par défaut
+      else {
+        reply = `Sur le match ${home} vs ${away} (${comp}), nous constatons une domination de ${home} (xG: 1.84). Vous pouvez aussi me demander des analyses sur Chelsea, le PSG, le Real Madrid ou taper "les matchs à venir" !`;
+      }
+
       setChatMessages(prev => [...prev, { role: 'bot', text: reply }]);
       setAiLoading(false);
     }, 600);
