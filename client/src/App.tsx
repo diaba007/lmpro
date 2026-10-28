@@ -28,7 +28,6 @@ import {
   ShieldAlert, 
   Crown, 
   Gift, 
-  Copy, 
   ExternalLink, 
   TrendingUp,
   Upload,
@@ -72,9 +71,8 @@ interface Match {
   score?: { fullTime: { home: number | null; away: number | null } };
 }
 
-// LES VRAIS MATCHS DE SERIE A D'AUJOURD'HUI + LES AUTRES LIGUES
+// LES 5 VRAIS MATCHS DE SERIE A D'AUJOURD'HUI
 const ALL_LEAGUES_MATCHES: Match[] = [
-  // 🇮🇹 LES 5 VRAIS MATCHS DE SERIE A AUJOURD'HUI (Mercredi 28 Octobre 2026)
   {
     id: 5001,
     competition: { name: 'Serie A', code: 'SA' },
@@ -115,8 +113,6 @@ const ALL_LEAGUES_MATCHES: Match[] = [
     homeTeam: { name: 'AC Monza', shortName: 'Monza', crest: 'https://crests.football-data.org/5911.png' },
     awayTeam: { name: 'SSC Napoli', shortName: 'Napoli', crest: 'https://crests.football-data.org/113.png' }
   },
-
-  // 🇬🇧 Premier League
   {
     id: 4001,
     competition: { name: 'Premier League', code: 'PL' },
@@ -125,7 +121,6 @@ const ALL_LEAGUES_MATCHES: Match[] = [
     homeTeam: { name: 'Manchester City FC', shortName: 'Man City', crest: 'https://crests.football-data.org/65.png' },
     awayTeam: { name: 'Arsenal FC', shortName: 'Arsenal', crest: 'https://crests.football-data.org/57.png' }
   },
-  // 🇪🇸 La Liga
   {
     id: 4003,
     competition: { name: 'La Liga', code: 'PD' },
@@ -134,7 +129,6 @@ const ALL_LEAGUES_MATCHES: Match[] = [
     homeTeam: { name: 'Real Madrid CF', shortName: 'Real Madrid', crest: 'https://crests.football-data.org/86.png' },
     awayTeam: { name: 'Athletic Club', shortName: 'Athletic', crest: 'https://crests.football-data.org/77.png' }
   },
-  // 🇫🇷 Ligue 1
   {
     id: 4005,
     competition: { name: 'Ligue 1', code: 'FL1' },
@@ -162,7 +156,7 @@ export default function App() {
   
   const [matches, setMatches] = useState<Match[]>(ALL_LEAGUES_MATCHES);
   const [isLive, setIsLive] = useState<boolean>(false);
-  const [selectedLeagueFilter, setSelectedLeagueFilter] = useState<string>('SA'); // Sélectionne Serie A par défaut
+  const [selectedLeagueFilter, setSelectedLeagueFilter] = useState<string>('SA');
   const [selectedMatch, setSelectedMatch] = useState<Match>(ALL_LEAGUES_MATCHES[0]);
 
   const [activeMarket, setActiveMarket] = useState<'ALL' | '1X2' | 'GOALS' | 'BTTS'>('ALL');
@@ -219,7 +213,6 @@ export default function App() {
   const isSecondaryAdmin = user && adminTeam.some(m => m.role === 'ADMIN' && m.email.toLowerCase() === userEmail);
   const hasAdminAccess = isSuperAdmin || isSecondaryAdmin;
 
-  // CHARGEMENT DIRECT DES VRAIS MATCHS DEPUIS L'API
   useEffect(() => {
     async function loadLiveMatches() {
       try {
@@ -233,7 +226,7 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.log("Mode direct Serie A actif.");
+        console.log("Mode Serie A direct actif.");
       }
     }
     loadLiveMatches();
@@ -276,6 +269,7 @@ export default function App() {
     }, 2500);
   };
 
+  // UPLOAD D'IMAGE DEPUIS L'ORDINATEUR
   const handleUploadLogoFromPC = (partnerId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -372,7 +366,6 @@ export default function App() {
     }, 600);
   };
 
-  // FILTRAGE STRICT PAR CHAMPIONNAT (SERIE A, ETC.)
   const filteredMatches = selectedLeagueFilter === 'ALL'
     ? matches
     : matches.filter(m => 
@@ -584,7 +577,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* IMPORTATION DES LOGOS DEPUIS LA MACHINE */}
+                  {/* IMPORTATION DES LOGOS DEPUIS LA MACHINE (AVEC BOÎTE RECTANGULAIRE ÉQUILIBRÉE) */}
                   {isSuperAdmin && (
                     <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
                       <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -597,11 +590,13 @@ export default function App() {
                             <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-4">
                               <div className="flex items-center justify-between">
                                 <span className="font-extrabold text-white text-sm">{p.name}</span>
-                                <div className="w-10 h-10 rounded-lg bg-[#0D1E38] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden">
+                                
+                                {/* APERÇU RECTANGULAIRE ADAPTÉ */}
+                                <div className="h-10 w-28 rounded-lg bg-[#0D1E38] border border-[#162C50] flex items-center justify-center px-2 py-1 overflow-hidden shadow-inner">
                                   {p.logoUrl ? (
-                                    <img src={p.logoUrl} alt={p.name} className="w-full h-full object-contain" />
+                                    <img src={p.logoUrl} alt={p.name} className="max-h-full max-w-full object-contain" />
                                   ) : (
-                                    <span className={`font-black text-xs ${theme.code}`}>{p.name.substring(0, 2).toUpperCase()}</span>
+                                    <span className={`font-black text-xs ${theme.code}`}>{p.name.toUpperCase()}</span>
                                   )}
                                 </div>
                               </div>
@@ -650,7 +645,7 @@ export default function App() {
             </div>
           )}
 
-          {/* TABLEAU DE BORD & MATCHS DU JOUR (AVEC LES 5 MATCHS DE SERIE A) */}
+          {/* TABLEAU DE BORD & MATCHS DU JOUR */}
           {(currentPage === 'dashboard' || currentPage === 'matches') && (
             <div className="space-y-6">
               <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -674,7 +669,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* BARRE DE SÉLECTION DE CHAMPIONNATS (SERIE A EN TÊTE) */}
+              {/* BARRE DE SÉLECTION DE CHAMPIONNATS */}
               <div className="space-y-2">
                 <span className="text-xs font-bold text-[#94A3B8] uppercase tracking-wider flex items-center gap-1.5">
                   <Globe size={14} className="text-[#0066FF]" /> Filtrer par Championnat :
@@ -700,7 +695,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Matchs du jour filtrés (5 MATCHS DE SERIE A VISIBLES) */}
+              {/* Matchs du jour filtrés */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -781,7 +776,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* TABLEAU DE COTES FLASHSCORE AUX COULEURS DES MARQUES */}
+              {/* TABLEAU FLASHSCORE (AVEC LOGO RECTANGULAIRE ADAPTÉ SANS FLOTTER) */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <TrendingUp size={16} className="text-[#00D68F]" /> Cotes Officielles & Meilleurs Bonus (Style Flashscore)
@@ -805,11 +800,13 @@ export default function App() {
                         return (
                           <tr key={p.id} className="hover:bg-[#081426]/60 transition-colors">
                             <td className="py-3.5 flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-[#081426] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden shrink-0">
+                              
+                              {/* BADGE RECTANGULAIRE QUI ÉVITE DE FAIRE FLOTTER LE LOGO */}
+                              <div className="h-8 w-24 rounded-lg bg-[#081426] border border-[#162C50] flex items-center justify-center px-2 py-1 overflow-hidden shrink-0 shadow-inner">
                                 {p.logoUrl ? (
-                                  <img src={p.logoUrl} alt={p.name} className="w-full h-full object-contain" />
+                                  <img src={p.logoUrl} alt={p.name} className="max-h-full max-w-full object-contain" />
                                 ) : (
-                                  <span className={`font-black text-xs ${theme.code}`}>{p.name.substring(0, 2).toUpperCase()}</span>
+                                  <span className={`font-black text-xs ${theme.code}`}>{p.name.toUpperCase()}</span>
                                 )}
                               </div>
                               <span className="font-extrabold text-white text-xs">{p.name}</span>

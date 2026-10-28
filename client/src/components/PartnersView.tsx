@@ -65,48 +65,47 @@ export const INITIAL_PARTNERS: PartnerBookmaker[] = [
   }
 ];
 
-// FONCTION QUI ATTRIBUE DIRECTEMENT LES VRAIES COULEURS OFFICIELLES
 export const getPartnerTheme = (id: string) => {
   switch (id.toLowerCase()) {
     case 'melbet':
       return {
-        button: 'bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 text-black hover:opacity-95 shadow-lg shadow-amber-500/30',
+        button: 'bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 text-black hover:opacity-95 shadow-lg shadow-amber-500/30 font-black',
         badge: 'bg-amber-400/20 text-amber-300 border border-amber-400/40',
         code: 'text-amber-400',
         border: 'border-amber-500/40 hover:border-amber-400',
-        parierBtn: 'bg-amber-400 hover:bg-yellow-400 text-black'
+        parierBtn: 'bg-amber-400 hover:bg-yellow-400 text-black font-black'
       };
     case 'betwinner':
       return {
-        button: 'bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 text-white hover:opacity-95 shadow-lg shadow-emerald-600/30',
+        button: 'bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 text-white hover:opacity-95 shadow-lg shadow-emerald-600/30 font-black',
         badge: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
         code: 'text-emerald-400',
         border: 'border-emerald-500/40 hover:border-emerald-400',
-        parierBtn: 'bg-emerald-600 hover:bg-green-600 text-white'
+        parierBtn: 'bg-emerald-600 hover:bg-green-600 text-white font-black'
       };
     case 'goldparis':
       return {
-        button: 'bg-gradient-to-r from-orange-500 via-amber-600 to-orange-600 text-white hover:opacity-95 shadow-lg shadow-orange-500/30',
+        button: 'bg-gradient-to-r from-orange-500 via-amber-600 to-orange-600 text-white hover:opacity-95 shadow-lg shadow-orange-500/30 font-black',
         badge: 'bg-orange-500/20 text-orange-300 border border-orange-500/40',
         code: 'text-orange-400',
         border: 'border-orange-500/40 hover:border-orange-400',
-        parierBtn: 'bg-orange-500 hover:bg-orange-400 text-white'
+        parierBtn: 'bg-orange-500 hover:bg-orange-400 text-white font-black'
       };
     case 'betclic':
       return {
-        button: 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white hover:opacity-95 shadow-lg shadow-red-600/30',
+        button: 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white hover:opacity-95 shadow-lg shadow-red-600/30 font-black',
         badge: 'bg-red-500/20 text-red-300 border border-red-500/40',
         code: 'text-red-400',
         border: 'border-red-500/40 hover:border-red-400',
-        parierBtn: 'bg-red-600 hover:bg-rose-600 text-white'
+        parierBtn: 'bg-red-600 hover:bg-rose-600 text-white font-black'
       };
     default:
       return {
-        button: 'bg-[#0066FF] text-white',
+        button: 'bg-[#0066FF] text-white font-black',
         badge: 'bg-[#0066FF]/20 text-[#0066FF]',
         code: 'text-[#0066FF]',
         border: 'border-[#162C50]',
-        parierBtn: 'bg-[#00D68F] text-black'
+        parierBtn: 'bg-[#00D68F] text-black font-black'
       };
   }
 };
@@ -143,27 +142,33 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode
               className={`bg-[#0D1E38] border ${theme.border} rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 shadow-xl space-y-5`}
             >
               <div>
-                <div className="flex justify-between items-start">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  
+                  {/* RECTANGLE HORIZONTAL AJUSTÉ AU LOGO (FINI LE LOGO QUI FLOTTE !) */}
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#081426] border border-[#162C50] flex items-center justify-center p-1.5 overflow-hidden shadow-md">
+                    <div className="h-11 w-32 rounded-xl bg-[#081426] border border-[#162C50] flex items-center justify-center px-2 py-1.5 overflow-hidden shadow-inner shrink-0">
                       {partner.logoUrl ? (
-                        <img src={partner.logoUrl} alt={partner.name} className="w-full h-full object-contain" />
+                        <img 
+                          src={partner.logoUrl} 
+                          alt={partner.name} 
+                          className="max-h-full max-w-full object-contain drop-shadow"
+                        />
                       ) : (
-                        <span className={`font-black text-sm ${theme.code}`}>
-                          {partner.name.substring(0, 2).toUpperCase()}
+                        <span className={`font-black text-xs tracking-wider ${theme.code}`}>
+                          {partner.name.toUpperCase()}
                         </span>
                       )}
                     </div>
                     <div>
-                      <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full ${theme.badge}`}>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${theme.badge}`}>
                         {partner.badge}
                       </span>
-                      <h2 className="text-xl font-black text-white mt-1">{partner.name}</h2>
+                      <h2 className="text-lg font-black text-white mt-0.5">{partner.name}</h2>
                     </div>
                   </div>
 
                   {/* Cotes Flashscore */}
-                  <div className="flex items-center gap-1.5 bg-[#081426] p-1.5 rounded-xl border border-[#162C50] text-[11px] font-mono">
+                  <div className="flex items-center gap-1 bg-[#081426] p-1 rounded-xl border border-[#162C50] text-[11px] font-mono shrink-0 self-start sm:self-auto">
                     <span className="px-2 py-1 bg-[#162C50] rounded text-white font-bold">{partner.odds1}</span>
                     <span className="px-2 py-1 bg-[#162C50] rounded text-[#94A3B8] font-bold">{partner.oddsX}</span>
                     <span className="px-2 py-1 bg-[#162C50] rounded text-[#00D68F] font-bold">{partner.odds2}</span>
