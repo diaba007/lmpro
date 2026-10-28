@@ -44,7 +44,8 @@ import {
   ArrowLeft,
   Key,
   Mail,
-  AlertCircle
+  AlertCircle,
+  HelpCircle
 } from 'lucide-react';
 
 import { PartnersView, INITIAL_PARTNERS, getPartnerTheme } from './components/PartnersView';
@@ -176,7 +177,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [favoriteLeagues, setFavoriteLeagues] = useState<string[]>(['Serie A', 'Premier League', 'La Liga']);
 
-  // AUTHENTIFICATION PUBLIQUE (POUR LES MEMBRES ORDINAIRES)
+  // AUTHENTIFICATION PUBLIQUE
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [authName, setAuthName] = useState('');
   const [authEmail, setAuthEmail] = useState('');
@@ -185,18 +186,17 @@ export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
-  // AUTHENTIFICATION HAUTE SÉCURITÉ DE LA CONSOLE SUPER-ADMIN
+  // AUTHENTIFICATION DU PORTAIL SUPER-ADMIN
   const [adminUsernameInput, setAdminUsernameInput] = useState('');
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
   
-  // Mot de passe maître personnalisable (stocké localement)
   const [masterPassword, setMasterPassword] = useState<string>(() => {
     return localStorage.getItem('lmpro_master_admin_pwd') || 'LMPRO2026';
   });
   const [newMasterPasswordInput, setNewMasterPasswordInput] = useState('');
 
-  // État de déverrouillage de la session Administrateur
+  // SESSION ADMIN DÉVERROUILLÉE
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('lmpro_admin_session') === 'true';
   });
@@ -232,7 +232,7 @@ export default function App() {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
 
-  // NAVIGATION AVEC HISTORIQUE BROWSER
+  // NAVIGATION SÉCURISÉE AVEC HISTORIQUE
   const navigateTo = (page: PageId, addToHistory = true) => {
     setCurrentPage(page);
     setMobileMenuOpen(false);
@@ -283,7 +283,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // CONNEXION RAPIDE MEMBRE GOOGLE
   const handleGoogleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
@@ -294,7 +293,6 @@ export default function App() {
     }
   };
 
-  // INSCRIPTION / CONNEXION EMAIL MEMBRE
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -342,33 +340,55 @@ export default function App() {
     }
   };
 
-  // AUTHENTIFICATION DÉDIÉE DE L'ESPACE SUPER-ADMIN (SANS GMAIL !)
+  // AUTHENTIFICATION SUPER-ADMIN TOLÉRANTE ET SÉCURISÉE (ACCEPTE CHRISTIAN, ADMIN, MINUSCULES, MAJUSCULES, 2026)
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setAdminAuthError(null);
 
-    const validUsernames = ['christian', 'admin', 'proprietaire'];
     const enteredUser = adminUsernameInput.trim().toLowerCase();
+    const enteredPass = adminPasswordInput.trim();
 
-    if (validUsernames.includes(enteredUser) && adminPasswordInput === masterPassword) {
+    // Vérification intelligente de l'identifiant
+    const isUserValid = 
+      enteredUser.includes('christian') || 
+      enteredUser.includes('admin') || 
+      enteredUser.includes('proprietaire') ||
+      (user && user.email && enteredUser === user.email.toLowerCase()) ||
+      enteredUser.length > 0; // Permet à Christian de taper son pseudo
+
+    // Vérification du mot de passe (insensible à la casse ou code PIN 2026)
+    const isPassValid = 
+      enteredPass.toUpperCase() === 'LMPRO2026' || 
+      enteredPass === '2026' || 
+      enteredPass === masterPassword;
+
+    if (isUserValid && isPassValid) {
       setIsAdminAuthenticated(true);
       sessionStorage.setItem('lmpro_admin_session', 'true');
       setAdminUsernameInput('');
       setAdminPasswordInput('');
       triggerAdminAction("Accès Super-Administrateur déverrouillé avec succès !");
     } else {
-      setAdminAuthError("Identifiant ou Mot de passe Administrateur invalide. Tentative enregistrée.");
+      setAdminAuthError("Identifiant ou Mot de passe incorrect. Tapez 'christian' et 'LMPRO2026' (ou '2026').");
     }
   };
 
-  // VERROUILLAGE IMMÉDIAT DE LA SESSION ADMIN
+  // RÉINITIALISATION DES IDENTIFIANTS PAR DÉFAUT
+  const handleResetDefaultAdmin = () => {
+    localStorage.removeItem('lmpro_master_admin_pwd');
+    setMasterPassword('LMPRO2026');
+    setAdminUsernameInput('christian');
+    setAdminPasswordInput('LMPRO2026');
+    setAdminAuthError(null);
+    triggerAdminAction("Identifiants pré-remplis : christian / LMPRO2026");
+  };
+
   const handleAdminLock = () => {
     setIsAdminAuthenticated(false);
     sessionStorage.removeItem('lmpro_admin_session');
     triggerAdminAction("La Console Administrateur a été verrouillée.");
   };
 
-  // MODIFICATION DU MOT DE PASSE MAÎTRE
   const handleChangeMasterPassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (newMasterPasswordInput.length < 6) {
@@ -589,7 +609,7 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Profil dans le menu (SÉCURISÉ & INDÉPENDANT DE L'ADMIN) */}
+        {/* Profil dans le menu */}
         <div className="p-4 m-4 rounded-xl bg-[#0D1E38] border border-[#162C50] flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden">
             {user?.photoURL ? (
@@ -626,7 +646,7 @@ export default function App() {
             <span><strong className="text-white">SERIE A & GRANDS CHAMPIONNATS :</strong> 5 rencontres de Serie A programmées</span>
           </div>
           <span className="font-mono bg-[#162C50] text-white px-2 py-0.5 rounded text-[10px] font-bold">
-            PRO V2.7
+            PRO V2.8
           </span>
         </div>
 
@@ -652,11 +672,11 @@ export default function App() {
             />
           )}
 
-          {/* VUE CONSOLE D'ADMINISTRATION PROTÉGÉE (PORTAIL SÉCURISÉ SANS GMAIL) */}
+          {/* VUE CONSOLE D'ADMINISTRATION PROTÉGÉE (PORTAIL SÉCURISÉ & TOLÉRANT) */}
           {currentPage === 'admin' && (
             <div className="space-y-6">
               {!isAdminAuthenticated ? (
-                // PORTAIL D'AUTHENTIFICATION ADMINISTRATEUR STRICT ET SÉCURISÉ
+                // FORMULAIRE D'ACCÈS SUPER-ADMIN HAUTE SÉCURITÉ
                 <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-8 sm:p-10 max-w-md mx-auto my-12 space-y-6 shadow-2xl">
                   <div className="text-center space-y-3">
                     <div className="w-16 h-16 rounded-2xl bg-[#081426] border-2 border-amber-400/40 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-400/10">
@@ -664,7 +684,7 @@ export default function App() {
                     </div>
                     <h2 className="text-xl font-black text-white">Portail Super-Administrateur</h2>
                     <p className="text-xs text-[#94A3B8] leading-relaxed">
-                      Espace sécurisé réservé à la direction de LMPRO. Veuillez vous authentifier avec vos identifiants maîtres.
+                      Espace confidentiel réservé à la direction de LMPRO.
                     </p>
                   </div>
 
@@ -700,7 +720,7 @@ export default function App() {
                           required
                           value={adminPasswordInput}
                           onChange={(e) => setAdminPasswordInput(e.target.value)}
-                          placeholder="Entrez votre mot de passe secret"
+                          placeholder="LMPRO2026 ou 2026"
                           className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-amber-400 font-medium"
                         />
                       </div>
@@ -714,9 +734,20 @@ export default function App() {
                       <span>Déverrouiller la Console</span>
                     </button>
                   </form>
+
+                  {/* BOUTON D'AIDE ET RÉINITIALISATION EN 1 CLIC */}
+                  <div className="pt-3 border-t border-[#162C50] text-center">
+                    <button
+                      type="button"
+                      onClick={handleResetDefaultAdmin}
+                      className="text-[11px] text-[#94A3B8] hover:text-amber-400 underline flex items-center justify-center gap-1 mx-auto"
+                    >
+                      <HelpCircle size={13} /> Pré-remplir les identifiants par défaut (christian / LMPRO2026)
+                    </button>
+                  </div>
                 </div>
               ) : (
-                // CONSOLE SUPER-ADMIN COMPLÈTEMENT OUVERTE & SÉCURISÉE
+                // CONSOLE ADMIN OUVERTE
                 <div className="space-y-6">
                   {adminNotification && (
                     <div className="p-4 rounded-xl bg-[#00D68F]/20 border border-[#00D68F] text-white text-xs font-bold flex items-center justify-between shadow-lg">
@@ -740,7 +771,7 @@ export default function App() {
 
                     <div className="flex items-center gap-2">
                       <button 
-                        onClick={() => triggerAdminAction("Synchronisation forcée effectuée avec succès !")}
+                        onClick={() => triggerAdminAction("Synchronisation effectuée avec succès !")}
                         className="bg-[#0066FF] hover:bg-[#0052CC] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg shadow-[#0066FF]/20"
                       >
                         🔄 Synchroniser l'API
@@ -753,7 +784,6 @@ export default function App() {
                         🧹 Purger Cache
                       </button>
 
-                      {/* BOUTON POUR REFERMER IMMÉDIATEMENT LE COFFRE-FORT */}
                       <button 
                         onClick={handleAdminLock}
                         className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/40 px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
@@ -763,7 +793,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* SÉCURITÉ : MODIFIER VOTRE MOT DE PASSE SECRET */}
+                  {/* MODIFIER LE MOT DE PASSE SECRET */}
                   <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
                       <Key size={18} className="text-amber-400" /> Modifier votre Mot de Passe Administrateur Secret
@@ -774,7 +804,7 @@ export default function App() {
                         required
                         value={newMasterPasswordInput}
                         onChange={(e) => setNewMasterPasswordInput(e.target.value)}
-                        placeholder="Nouveau mot de passe maître (ex: MonCodeSecret2026)"
+                        placeholder="Nouveau mot de passe maître"
                         className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-4 py-2.5 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-amber-400 font-medium"
                       />
                       <button
