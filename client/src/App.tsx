@@ -1,7 +1,3 @@
-import melbetLogo from './assets/partners/melbet.png';
-import betwinnerLogo from './assets/partners/betwinner.png';
-import goldparisLogo from './assets/partners/goldparis.png';
-import betclicLogo from './assets/partners/betclic.png';
 import React, { useState, useEffect } from 'react';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
@@ -39,6 +35,12 @@ import {
   TrendingUp
 } from 'lucide-react';
 
+// --- IMPORTATION DIRECTE DES LOGOS OFFICIELS DES BOOKMAKERS ---
+import melbetLogo from './assets/partners/melbet.png';
+import betwinnerLogo from './assets/partners/betwinner.png';
+import goldparisLogo from './assets/partners/goldparis.png';
+import betclicLogo from './assets/partners/betclic.png';
+
 // --- CONFIGURATION FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyDpK1KPLF3M_siYXRKSW4g5EKEYvKOFYjU",
@@ -74,7 +76,6 @@ interface PartnerBookmaker {
   odds1: string;
   oddsX: string;
   odds2: string;
-  color: string;
   badge: string;
 }
 
@@ -196,8 +197,7 @@ export default function App() {
 
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
-  // LISTE DES PARTENAIRES AVEC COTES ET LOGOS LOCAUX
-  // LISTE DES PARTENAIRES AVEC IMPORTATION DIRECTE DES LOGOS
+  // PARTENAIRES AVEC LES LOGOS IMPORTÉS DIRECTEMENT
   const [partners, setPartners] = useState<PartnerBookmaker[]>([
     {
       id: 'melbet',
@@ -209,7 +209,6 @@ export default function App() {
       odds1: '2.05',
       oddsX: '3.45',
       odds2: '3.80',
-      color: 'bg-amber-500 text-black',
       badge: 'TOP BONUS AFRIQUE'
     },
     {
@@ -222,7 +221,6 @@ export default function App() {
       odds1: '2.08',
       oddsX: '3.40',
       odds2: '3.75',
-      color: 'bg-emerald-600 text-white',
       badge: 'RECOMMANDÉ'
     },
     {
@@ -235,7 +233,6 @@ export default function App() {
       odds1: '2.02',
       oddsX: '3.50',
       odds2: '3.90',
-      color: 'bg-yellow-500 text-black',
       badge: 'EXCLUSIF CI'
     },
     {
@@ -248,7 +245,6 @@ export default function App() {
       odds1: '2.00',
       oddsX: '3.35',
       odds2: '3.70',
-      color: 'bg-rose-600 text-white',
       badge: 'OFFICIEL'
     }
   ]);
@@ -323,11 +319,10 @@ export default function App() {
     }, 2500);
   };
 
-  const handleUpdatePartner = (id: string, newCode: string, newUrl: string, newLogo: string) => {
-    const updated = partners.map(p => p.id === id ? { ...p, promoCode: newCode, url: newUrl, logoUrl: newLogo } : p);
+  const handleUpdatePartner = (id: string, newCode: string, newUrl: string) => {
+    const updated = partners.map(p => p.id === id ? { ...p, promoCode: newCode, url: newUrl } : p);
     setPartners(updated);
-    localStorage.setItem('lmpro_partners', JSON.stringify(updated));
-    triggerAdminAction(`Le partenaire ${id.toUpperCase()} a été mis à jour avec succès !`);
+    triggerAdminAction(`Le partenaire ${id.toUpperCase()} a été mis à jour avec le code ${newCode} !`);
   };
 
   const handleAddAdmin = (e: React.FormEvent) => {
@@ -561,16 +556,14 @@ export default function App() {
                     <div>
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-3">
-                          {/* Image du Logo avec secours stylé */}
                           <div className="w-12 h-12 rounded-xl bg-[#081426] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden shadow-md">
                             <img 
                               src={partner.logoUrl} 
                               alt={partner.name}
                               className="w-full h-full object-contain"
                               onError={(e) => {
-                                // Secours si l'image n'est pas encore posée dans public/partners/
                                 (e.target as HTMLElement).style.display = 'none';
-                                (e.target as HTMLElement).parentElement!.innerHTML = `<span class="font-black text-sm text-amber-400">${partner.name.substring(0, 2).toUpperCase()}</span>`;
+                                (e.target as HTMLElement).parentElement!.innerHTML = `<span class="font-black text-xs text-amber-400">${partner.name.substring(0, 2).toUpperCase()}</span>`;
                               }}
                             />
                           </div>
@@ -694,22 +687,25 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* CONFIGURATION DES BOOKMAKERS (SUPER-ADMIN) */}
+                  {/* CONFIGURATION DES CODES PROMOS & LIENS */}
                   {isSuperAdmin && (
                     <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
                       <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <Settings size={18} className="text-amber-400" /> Gestion des Bookmakers & Logos (Style Flashscore)
+                        <Settings size={18} className="text-amber-400" /> Configuration de vos Codes Promo & Liens d'Affiliation
                       </h3>
                       <p className="text-xs text-[#94A3B8]">
-                        Modifiez vos codes promo, vos liens d'affiliation ou le chemin des logos (par défaut : <code>/partners/nom.png</code>).
+                        Personnalisez vos codes promo affichés aux utilisateurs et vos liens de redirection.
                       </p>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                         {partners.map((p) => (
                           <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-3">
-                            <span className="font-bold text-white text-sm block">{p.name}</span>
+                            <div className="flex items-center gap-2">
+                              <img src={p.logoUrl} alt="" className="w-5 h-5 object-contain" />
+                              <span className="font-bold text-white text-sm">{p.name}</span>
+                            </div>
                             <div>
-                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Code Promo :</label>
+                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Code Promo affiché :</label>
                               <input
                                 type="text"
                                 defaultValue={p.promoCode}
@@ -718,7 +714,7 @@ export default function App() {
                               />
                             </div>
                             <div>
-                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Lien d'affiliation :</label>
+                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Lien d'affiliation officiel :</label>
                               <input
                                 type="text"
                                 defaultValue={p.url}
@@ -726,21 +722,11 @@ export default function App() {
                                 className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-[#0066FF]"
                               />
                             </div>
-                            <div>
-                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Chemin du logo image :</label>
-                              <input
-                                type="text"
-                                defaultValue={p.logoUrl}
-                                id={`logo-${p.id}`}
-                                className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono outline-none focus:border-[#0066FF]"
-                              />
-                            </div>
                             <button
                               onClick={() => {
                                 const newC = (document.getElementById(`code-${p.id}`) as HTMLInputElement).value;
                                 const newU = (document.getElementById(`url-${p.id}`) as HTMLInputElement).value;
-                                const newL = (document.getElementById(`logo-${p.id}`) as HTMLInputElement).value;
-                                handleUpdatePartner(p.id, newC, newU, newL);
+                                handleUpdatePartner(p.id, newC, newU);
                               }}
                               className="w-full py-1.5 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-lg text-xs font-bold transition-colors"
                             >
@@ -1001,10 +987,6 @@ export default function App() {
                                 src={p.logoUrl} 
                                 alt={p.name}
                                 className="w-full h-full object-contain"
-                                onError={(e) => {
-                                  (e.target as HTMLElement).style.display = 'none';
-                                  (e.target as HTMLElement).parentElement!.innerHTML = `<span class="font-black text-xs text-amber-400">${p.name.substring(0, 2).toUpperCase()}</span>`;
-                                }}
                               />
                             </div>
                             <div>
@@ -1013,7 +995,6 @@ export default function App() {
                             </div>
                           </td>
 
-                          {/* Cotes Flashscore encadrées */}
                           <td className="py-3.5 text-center">
                             <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-white text-xs cursor-pointer">
                               {p.odds1}
@@ -1030,7 +1011,6 @@ export default function App() {
                             </span>
                           </td>
 
-                          {/* Code Promo avec bouton copie rapide */}
                           <td className="py-3.5">
                             <div className="flex items-center gap-2">
                               <span className="font-mono bg-[#162C50] text-[#00D68F] px-2 py-0.5 rounded font-extrabold text-xs">
@@ -1047,7 +1027,6 @@ export default function App() {
                             <span className="text-[10px] text-[#94A3B8] block mt-0.5 truncate max-w-[180px]">{p.bonus}</span>
                           </td>
 
-                          {/* Bouton Parier direct Flashscore */}
                           <td className="py-3.5 text-right">
                             <a
                               href={p.url}
