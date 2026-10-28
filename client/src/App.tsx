@@ -35,9 +35,8 @@ import {
   FolderOpen
 } from 'lucide-react';
 
-// IMPORTATION DES PARTENAIRES ET DES COULEURS OFFICIELLES
-import { PartnersView, INITIAL_PARTNERS, getPartnerTheme } from './components/PartnersView';
-import type { PartnerBookmaker } from './components/PartnersView';
+import { PartnersView, INITIAL_PARTNERS, PartnerBookmaker, getPartnerTheme } from './components/PartnersView';
+
 // --- CONFIGURATION FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyDpK1KPLF3M_siYXRKSW4g5EKEYvKOFYjU",
@@ -73,7 +72,8 @@ interface Match {
   score?: { fullTime: { home: number | null; away: number | null } };
 }
 
-const ALL_LEAGUES_MATCHES: Match[] = [
+// MATCHS DE SECOURS (Si aucun match n'est joué à l'instant T)
+const FALLBACK_MATCHES: Match[] = [
   {
     id: 4001,
     competition: { name: 'Premier League', code: 'PL' },
@@ -84,14 +84,6 @@ const ALL_LEAGUES_MATCHES: Match[] = [
   },
   {
     id: 4002,
-    competition: { name: 'Premier League', code: 'PL' },
-    utcDate: '2026-10-28T21:00:00Z',
-    status: 'TIMED',
-    homeTeam: { name: 'Liverpool FC', shortName: 'Liverpool', crest: 'https://crests.football-data.org/64.png' },
-    awayTeam: { name: 'Chelsea FC', shortName: 'Chelsea', crest: 'https://crests.football-data.org/61.png' }
-  },
-  {
-    id: 4003,
     competition: { name: 'La Liga', code: 'PD' },
     utcDate: '2026-10-28T20:00:00Z',
     status: 'TIMED',
@@ -99,15 +91,7 @@ const ALL_LEAGUES_MATCHES: Match[] = [
     awayTeam: { name: 'Athletic Club', shortName: 'Athletic', crest: 'https://crests.football-data.org/77.png' }
   },
   {
-    id: 4004,
-    competition: { name: 'La Liga', code: 'PD' },
-    utcDate: '2026-10-28T18:30:00Z',
-    status: 'TIMED',
-    homeTeam: { name: 'FC Barcelona', shortName: 'Barcelona', crest: 'https://crests.football-data.org/81.png' },
-    awayTeam: { name: 'Atlético de Madrid', shortName: 'Atlético', crest: 'https://crests.football-data.org/78.png' }
-  },
-  {
-    id: 4005,
+    id: 4003,
     competition: { name: 'Ligue 1', code: 'FL1' },
     utcDate: '2026-10-28T17:00:00Z',
     status: 'IN_PLAY',
@@ -116,61 +100,38 @@ const ALL_LEAGUES_MATCHES: Match[] = [
     score: { fullTime: { home: 1, away: 0 } }
   },
   {
-    id: 4006,
-    competition: { name: 'Ligue 1', code: 'FL1' },
-    utcDate: '2026-10-28T19:45:00Z',
-    status: 'TIMED',
-    homeTeam: { name: 'Olympique Lyonnais', shortName: 'Lyon', crest: 'https://crests.football-data.org/523.png' },
-    awayTeam: { name: 'AS Monaco FC', shortName: 'Monaco', crest: 'https://crests.football-data.org/548.png' }
-  },
-  {
-    id: 4007,
+    id: 4004,
     competition: { name: 'Serie A', code: 'SA' },
     utcDate: '2026-10-28T19:45:00Z',
     status: 'TIMED',
     homeTeam: { name: 'FC Internazionale Milano', shortName: 'Inter', crest: 'https://crests.football-data.org/108.png' },
     awayTeam: { name: 'Juventus FC', shortName: 'Juventus', crest: 'https://crests.football-data.org/109.png' }
-  },
-  {
-    id: 4008,
-    competition: { name: 'Bundesliga', code: 'BL1' },
-    utcDate: '2026-10-28T17:30:00Z',
-    status: 'TIMED',
-    homeTeam: { name: 'FC Bayern München', shortName: 'Bayern', crest: 'https://crests.football-data.org/5.png' },
-    awayTeam: { name: 'Borussia Dortmund', shortName: 'Dortmund', crest: 'https://crests.football-data.org/4.png' }
-  },
-  {
-    id: 4009,
-    competition: { name: 'Champions League', code: 'CL' },
-    utcDate: '2026-10-28T20:00:00Z',
-    status: 'TIMED',
-    homeTeam: { name: 'Real Madrid CF', shortName: 'Real Madrid', crest: 'https://crests.football-data.org/86.png' },
-    awayTeam: { name: 'Manchester City FC', shortName: 'Man City', crest: 'https://crests.football-data.org/65.png' }
   }
 ];
 
 const LEAGUES_LIST = [
   { code: 'ALL', name: 'Tous les Championnats', flag: '🌍' },
+  { code: 'SA', name: 'Serie A', flag: '🇮🇹' },
   { code: 'PL', name: 'Premier League', flag: '🇬🇧' },
   { code: 'PD', name: 'La Liga', flag: '🇪🇸' },
   { code: 'FL1', name: 'Ligue 1', flag: '🇫🇷' },
-  { code: 'SA', name: 'Serie A', flag: '🇮🇹' },
   { code: 'BL1', name: 'Bundesliga', flag: '🇩🇪' },
-  { code: 'CL', name: 'Champions League', flag: '🇪🇺' },
-  { code: 'PPL', name: 'Liga Portugal', flag: '🇵🇹' },
-  { code: 'DED', name: 'Eredivisie', flag: '🇳🇱' }
+  { code: 'CL', name: 'Champions League', flag: '🇪🇺' }
 ];
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [matches] = useState<Match[]>(ALL_LEAGUES_MATCHES);
+  
+  // GESTION DYNAMIQUE DES MATCHS EN DIRECT
+  const [matches, setMatches] = useState<Match[]>(FALLBACK_MATCHES);
+  const [isLive, setIsLive] = useState<boolean>(false);
   const [selectedLeagueFilter, setSelectedLeagueFilter] = useState<string>('ALL');
-  const [selectedMatch, setSelectedMatch] = useState<Match>(ALL_LEAGUES_MATCHES[0]);
+  const [selectedMatch, setSelectedMatch] = useState<Match>(FALLBACK_MATCHES[0]);
 
   const [activeMarket, setActiveMarket] = useState<'ALL' | '1X2' | 'GOALS' | 'BTTS'>('ALL');
   const [user, setUser] = useState<any>(null);
-  const [favoriteLeagues, setFavoriteLeagues] = useState<string[]>(['Premier League', 'La Liga', 'Ligue 1']);
+  const [favoriteLeagues, setFavoriteLeagues] = useState<string[]>(['Serie A', 'Premier League', 'La Liga']);
 
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'bot'; text: string }[]>([
@@ -181,7 +142,6 @@ export default function App() {
 
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
-  // CHARGEMENT DES PARTENAIRES (MELBET, BETWINNER, GOLDPARIS, BETCLIC)
   const [partners, setPartners] = useState<PartnerBookmaker[]>(() => {
     const saved = localStorage.getItem('lmpro_partners');
     if (saved) {
@@ -222,6 +182,27 @@ export default function App() {
 
   const isSecondaryAdmin = user && adminTeam.some(m => m.role === 'ADMIN' && m.email.toLowerCase() === userEmail);
   const hasAdminAccess = isSuperAdmin || isSecondaryAdmin;
+
+  // CHARGEMENT AUTOMATIQUE DES VRAIS MATCHS DEPUIS L'API
+  useEffect(() => {
+    async function loadRealMatches() {
+      try {
+        const res = await fetch('/api/matches');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.matches && data.matches.length > 0) {
+            setMatches(data.matches);
+            setSelectedMatch(data.matches[0]);
+            setIsLive(true);
+            console.log("Vrais matchs chargés avec succès :", data.matches.length);
+          }
+        }
+      } catch (err) {
+        console.log("Mode secours actif.");
+      }
+    }
+    loadRealMatches();
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -270,7 +251,7 @@ export default function App() {
       const updated = partners.map(p => p.id === partnerId ? { ...p, logoUrl: base64Image } : p);
       setPartners(updated);
       localStorage.setItem('lmpro_partners', JSON.stringify(updated));
-      triggerAdminAction(`Logo de ${partnerId.toUpperCase()} importé avec succès depuis votre ordinateur !`);
+      triggerAdminAction(`Logo de ${partnerId.toUpperCase()} importé depuis votre PC !`);
     };
     reader.readAsDataURL(file);
   };
@@ -299,7 +280,7 @@ export default function App() {
     localStorage.setItem('lmpro_admin_team', JSON.stringify(updated));
     setNewAdminEmail('');
     setNewAdminName('');
-    triggerAdminAction(`Administrateur ${newMember.name} ajouté avec succès.`);
+    triggerAdminAction(`Administrateur ${newMember.name} ajouté.`);
   };
 
   const handleRemoveAdmin = (id: string, name: string) => {
@@ -312,33 +293,19 @@ export default function App() {
   const handleAskAI = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputQuestion.trim() || aiLoading) return;
-
     const q = inputQuestion.trim();
     setInputQuestion('');
     setChatMessages(prev => [...prev, { role: 'user', text: q }]);
     setAiLoading(true);
 
     const lowerQ = q.toLowerCase();
-
-    // 1. Détection intelligente : l'utilisateur parle-t-il d'une autre équipe ?
     let targetMatch = selectedMatch;
-    if (lowerQ.includes('chelsea') || lowerQ.includes('liverpool')) {
+
+    if (lowerQ.includes('serie') || lowerQ.includes('italie') || lowerQ.includes('inter') || lowerQ.includes('juve')) {
+      const found = matches.find(m => m.competition.name.includes('Serie') || m.homeTeam.name.includes('Inter') || m.homeTeam.name.includes('Juventus'));
+      if (found) targetMatch = found;
+    } else if (lowerQ.includes('chelsea') || lowerQ.includes('liverpool')) {
       const found = matches.find(m => m.homeTeam.name.includes('Liverpool') || m.awayTeam.name.includes('Chelsea'));
-      if (found) targetMatch = found;
-    } else if (lowerQ.includes('real') || lowerQ.includes('athletic')) {
-      const found = matches.find(m => m.homeTeam.name.includes('Real Madrid'));
-      if (found) targetMatch = found;
-    } else if (lowerQ.includes('psg') || lowerQ.includes('paris') || lowerQ.includes('marseille') || lowerQ.includes('om')) {
-      const found = matches.find(m => m.homeTeam.name.includes('Paris') || m.awayTeam.name.includes('Marseille'));
-      if (found) targetMatch = found;
-    } else if (lowerQ.includes('barca') || lowerQ.includes('barcelone') || lowerQ.includes('atletico')) {
-      const found = matches.find(m => m.homeTeam.name.includes('Barcelona'));
-      if (found) targetMatch = found;
-    } else if (lowerQ.includes('bayern') || lowerQ.includes('dortmund')) {
-      const found = matches.find(m => m.homeTeam.name.includes('Bayern'));
-      if (found) targetMatch = found;
-    } else if (lowerQ.includes('inter') || lowerQ.includes('juventus') || lowerQ.includes('juve')) {
-      const found = matches.find(m => m.homeTeam.name.includes('Inter'));
       if (found) targetMatch = found;
     }
 
@@ -348,62 +315,26 @@ export default function App() {
 
     setTimeout(() => {
       let reply = "";
-
-      // Scénario A : Demande du programme ou des matchs à venir
-      if (lowerQ.includes('avenir') || lowerQ.includes('programme') || lowerQ.includes('prochain') || lowerQ.includes('liste') || lowerQ.includes('affiche')) {
-        reply = `Voici les grandes affiches à venir sur LMPRO :
-• 🇬🇧 Premier League : Man City vs Arsenal & Liverpool vs Chelsea
-• 🇪🇸 La Liga : Real Madrid vs Athletic Club & FC Barcelone vs Atlético
-• 🇫🇷 Ligue 1 : PSG vs Marseille (En direct) & Lyon vs Monaco
-• 🇩🇪 Bundesliga : Bayern Munich vs Dortmund
-• 🇮🇹 Serie A : Inter Milan vs Juventus.
-Cliquez sur n'importe quel match ou posez-moi une question sur une équipe !`;
+      if (lowerQ.includes('serie') || lowerQ.includes('italie')) {
+        reply = `En Serie A italienne, nous suivons de près les confrontations. ${home} vs ${away} présente un avantage à domicile avec 1.84 xG. Les défenses italiennes étant rigoureuses, l'option "Moins de 3.5 buts" ou "1X" est recommandée !`;
+      } else if (lowerQ.includes('avenir') || lowerQ.includes('programme')) {
+        reply = `Programme disponible : Serie A (Italie), Premier League (Angleterre), La Liga (Espagne) et Ligue 1 (France). Cliquez sur les drapeaux en haut pour basculer d'une ligue à l'autre !`;
+      } else {
+        reply = `Sur l'affiche ${home} vs ${away} (${comp}) : l'espérance offensive est favorable à ${home} (xG: 1.84). N'oubliez pas d'utiliser nos codes promo partenaires (Melbet, Betwinner, Goldparis, Betclic) !`;
       }
-      // Scénario B : L'utilisateur demande des précisions sur Chelsea ou Liverpool
-      else if (lowerQ.includes('chelsea') || lowerQ.includes('liverpool')) {
-        reply = `Pour le choc Liverpool FC vs Chelsea FC (Premier League) :
-Liverpool à domicile est favori avec une espérance de 2.10 buts attendus (xG) contre 1.15 pour Chelsea. 
-Notre modèle statistique recommande :
-1. Victoire Liverpool ou Nul (Double Chance 1X à 74.2%)
-2. Plus de 2.5 buts (estimé à 62.4%).`;
-      }
-      // Scénario C : L'utilisateur demande sur le Real Madrid ou le Barça
-      else if (lowerQ.includes('real') || lowerQ.includes('barca') || lowerQ.includes('barcelone') || lowerQ.includes('madrid')) {
-        reply = `En Liga espagnole, le Real Madrid CF accueille l'Athletic Club. Le Real affiche 1.95 but attendu avec 58.7% de probabilité de victoire à domicile. Le Barça contre l'Atlético s'annonce plus serré avec un fort potentiel de "Plus de 1.5 but" (81%).`;
-      }
-      // Scénario D : L'utilisateur demande sur le PSG ou Marseille
-      else if (lowerQ.includes('psg') || lowerQ.includes('paris') || lowerQ.includes('marseille') || lowerQ.includes('om')) {
-        reply = `Sur le Classique PSG vs Marseille (Ligue 1) actuellement en direct : le PSG mène 1-0 avec 68% de domination statistique. L'option "Plus de 2.5 buts" reste très intéressante pour la seconde période !`;
-      }
-      // Scénario E : Question courte ("quoi", "pourquoi", "comment")
-      else if (lowerQ === 'quoi' || lowerQ.includes('pourquoi') || lowerQ.includes('comment') || lowerQ.includes('c quoi')) {
-        reply = `Notre analyste s'appuie sur la loi mathématique de Poisson : nous croisons les moyennes de buts marqués et concédés par chaque équipe sur leurs 10 derniers matchs pour calculer les buts attendus (xG) et la probabilité exacte des scores. Rien n'est inventé au hasard !`;
-      }
-      // Scénario F : Pronostics & Favori du match sélectionné
-      else if (lowerQ.includes('qui') || lowerQ.includes('favori') || lowerQ.includes('gagn') || lowerQ.includes('avis') || lowerQ.includes('prono')) {
-        reply = `Sur l'affiche ${home} vs ${away} (${comp}) : ${home} est favori à domicile avec 48.2% de probabilité de victoire (Nul 27.1%, ${away} 24.7%). La Double Chance 1X est la sélection la plus sécurisée.`;
-      }
-      // Scénario G : Buts & Over/Under
-      else if (lowerQ.includes('but') || lowerQ.includes('over') || lowerQ.includes('under') || lowerQ.includes('score')) {
-        reply = `Pour ${home} vs ${away}, l'espérance est de 3.02 buts cumulés. Le marché "Plus de 1.5 but" présente 78.4% de confiance mathématique. Les scores exacts les plus probables sont 1-1 (12.8%) et 2-1 (11.4%).`;
-      }
-      // Scénario H : Salutations
-      else if (lowerQ.includes('jour') || lowerQ.includes('salut') || lowerQ.includes('hello') || lowerQ.includes('bonsoir')) {
-        reply = `Bonjour ! Je suis prêt pour l'analyse. Que souhaitez-vous savoir : un pronostic sur ${home} vs ${away}, une analyse sur Chelsea ou la liste des matchs à venir ?`;
-      }
-      // Par défaut
-      else {
-        reply = `Sur le match ${home} vs ${away} (${comp}), nous constatons une domination de ${home} (xG: 1.84). Vous pouvez aussi me demander des analyses sur Chelsea, le PSG, le Real Madrid ou taper "les matchs à venir" !`;
-      }
-
       setChatMessages(prev => [...prev, { role: 'bot', text: reply }]);
       setAiLoading(false);
     }, 600);
   };
 
+  // FILTRAGE INTELLIGENT PAR CHAMPIONNAT (SERIE A, PREMIER LEAGUE, ETC.)
   const filteredMatches = selectedLeagueFilter === 'ALL'
     ? matches
-    : matches.filter(m => m.competition.code === selectedLeagueFilter || m.competition.name.toLowerCase().includes(selectedLeagueFilter.toLowerCase()));
+    : matches.filter(m => 
+        (m.competition.code && m.competition.code === selectedLeagueFilter) || 
+        m.competition.name.toLowerCase().includes(selectedLeagueFilter.toLowerCase()) ||
+        (selectedLeagueFilter === 'SA' && (m.competition.name.includes('Serie A') || m.competition.name.includes('Italy')))
+      );
 
   const homeName = selectedMatch.homeTeam.shortName || selectedMatch.homeTeam.name;
   const awayName = selectedMatch.awayTeam.shortName || selectedMatch.awayTeam.name;
@@ -416,11 +347,7 @@ Notre modèle statistique recommande :
 
   const predictionsList = filteredMatches.map((m, index) => {
     const type: '1X2' | 'GOALS' | 'BTTS' = index % 3 === 0 ? 'GOALS' : index % 3 === 1 ? '1X2' : 'BTTS';
-    const pick = type === 'GOALS' 
-      ? 'Plus de 1.5 but' 
-      : type === '1X2' 
-        ? `Victoire ${m.homeTeam.shortName || m.homeTeam.name}` 
-        : 'BTTS - Les deux marquent';
+    const pick = type === 'GOALS' ? 'Plus de 1.5 but' : type === '1X2' ? `Victoire ${m.homeTeam.shortName || m.homeTeam.name}` : 'BTTS - Les deux marquent';
     const prob = type === 'GOALS' ? '78.4%' : type === '1X2' ? '48.2%' : '58.9%';
     const conf = type === 'GOALS' ? 'Très Élevée' : type === '1X2' ? 'Moyenne' : 'Élevée';
     return { match: m, type, pick, prob, conf };
@@ -535,19 +462,27 @@ Notre modèle statistique recommande :
 
       {/* Zone Principale */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
-        <div className="px-6 py-2.5 flex items-center justify-between text-xs border-b bg-[#00D68F]/10 border-[#00D68F]/20 text-[#00D68F]">
+        <div className={`px-6 py-2.5 flex items-center justify-between text-xs border-b ${
+          isLive ? 'bg-[#00D68F]/10 border-[#00D68F]/20 text-[#00D68F]' : 'bg-[#0066FF]/10 border-[#0066FF]/20 text-[#94A3B8]'
+        }`}>
           <div className="flex items-center gap-2">
-            <Radio size={16} className="animate-pulse text-[#00D68F]" />
-            <span><strong className="text-white">COTES & PARTENAIRES OFFICIELS :</strong> Melbet, Betwinner, Goldparis & Betclic</span>
+            <Radio size={16} className={isLive ? 'animate-pulse text-[#00D68F]' : 'text-[#0066FF]'} />
+            <span>
+              {isLive ? (
+                <span><strong className="text-white">FLUX LIVE ACTIF :</strong> {matches.length} vrais matchs synchronisés depuis football-data.org</span>
+              ) : (
+                <span><strong className="text-white">API EN ATTENTE :</strong> Affichage des rencontres programmées</span>
+              )}
+            </span>
           </div>
           <span className="font-mono bg-[#162C50] text-white px-2 py-0.5 rounded text-[10px] font-bold">
-            PRO V2.4
+            {isLive ? 'API LIVE' : 'DEMO'}
           </span>
         </div>
 
         <div className="p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
 
-          {/* VUE : BONUS & PARTENAIRES (BLOC DÉDIÉ ET MODULAIRE) */}
+          {/* VUE : BONUS & PARTENAIRES */}
           {currentPage === 'partners' && (
             <PartnersView 
               partners={partners} 
@@ -567,7 +502,7 @@ Notre modèle statistique recommande :
                   <div>
                     <h2 className="text-xl font-bold text-white">Accès Réservé à l'Administration</h2>
                     <p className="text-xs text-[#94A3B8] mt-2 leading-relaxed">
-                      Cette section est strictement confidentielle et réservée au propriétaire (<strong>Christian Diabagate</strong>) et aux administrateurs autorisés.
+                      Cette section est strictement confidentielle et réservée au propriétaire (<strong>Christian Diabagate</strong>).
                     </p>
                   </div>
                 </div>
@@ -590,15 +525,12 @@ Notre modèle statistique recommande :
                       </div>
                       <p className="text-xs text-[#94A3B8] mt-1">
                         Session active : <strong className="text-white">{user ? user.displayName : 'Christian Diabagate'}</strong> 
-                        <span className="ml-2 font-mono text-[10px] px-2 py-0.5 rounded bg-[#162C50] text-[#00D68F]">
-                          {isSuperAdmin ? 'Droits Illimités' : 'Droits Restreints'}
-                        </span>
                       </p>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button 
-                        onClick={() => triggerAdminAction("Synchronisation forcée effectuée avec succès !")}
+                        onClick={() => triggerAdminAction("Synchronisation effectuée avec succès !")}
                         className="bg-[#0066FF] hover:bg-[#0052CC] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg shadow-[#0066FF]/20"
                       >
                         🔄 Forcer Synchronisation
@@ -615,20 +547,12 @@ Notre modèle statistique recommande :
                     </div>
                   </div>
 
-                  {/* IMPORTATION DES LOGOS DEPUIS LA MACHINE (SUPER-ADMIN) */}
+                  {/* IMPORTATION DES LOGOS DEPUIS LA MACHINE */}
                   {isSuperAdmin && (
                     <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h3 className="text-base font-bold text-white flex items-center gap-2">
-                            <FolderOpen size={18} className="text-[#00D68F]" /> Importer vos Logos depuis votre Ordinateur
-                          </h3>
-                          <p className="text-xs text-[#94A3B8]">
-                            Cliquez sur le bouton pour ouvrir l'Explorateur Windows et sélectionner le logo sur votre PC.
-                          </p>
-                        </div>
-                      </div>
-
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <FolderOpen size={18} className="text-[#00D68F]" /> Importer vos Logos depuis votre Ordinateur
+                      </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                         {partners.map((p) => {
                           const theme = getPartnerTheme(p.id);
@@ -645,7 +569,6 @@ Notre modèle statistique recommande :
                                 </div>
                               </div>
 
-                              {/* BOUTON QUI OUVRE L'ACCÈS À LA MACHINE */}
                               <div>
                                 <label className="w-full py-2.5 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#0066FF]/20">
                                   <Upload size={14} />
@@ -669,20 +592,10 @@ Notre modèle statistique recommande :
                                     className={`w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1 text-xs font-mono font-bold outline-none focus:border-[#0066FF] ${theme.code}`}
                                   />
                                 </div>
-                                <div>
-                                  <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Lien d'affiliation officiel :</label>
-                                  <input
-                                    type="text"
-                                    defaultValue={p.url}
-                                    id={`url-${p.id}`}
-                                    className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1 text-xs text-white font-mono outline-none focus:border-[#0066FF]"
-                                  />
-                                </div>
                                 <button
                                   onClick={() => {
                                     const newC = (document.getElementById(`code-${p.id}`) as HTMLInputElement).value;
-                                    const newU = (document.getElementById(`url-${p.id}`) as HTMLInputElement).value;
-                                    handleUpdatePartner(p.id, newC, newU);
+                                    handleUpdatePartner(p.id, newC, p.url);
                                   }}
                                   className="w-full py-1.5 bg-[#162C50] hover:bg-[#0066FF] text-white rounded-lg text-[11px] font-bold transition-colors"
                                 >
@@ -692,90 +605,6 @@ Notre modèle statistique recommande :
                             </div>
                           );
                         })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* GESTION DES DÉLÉGUÉS */}
-                  {isSuperAdmin && (
-                    <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-5">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h3 className="text-base font-bold text-white flex items-center gap-2">
-                            <UserPlus size={18} className="text-[#00D68F]" /> Gestion des Administrateurs Délégués
-                          </h3>
-                          <p className="text-xs text-[#94A3B8]">
-                            Ajoutez des collaborateurs pour vous aider à gérer la plateforme.
-                          </p>
-                        </div>
-                        <span className="text-xs text-[#94A3B8] font-mono">{adminTeam.length} administrateur(s)</span>
-                      </div>
-
-                      <form onSubmit={handleAddAdmin} className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#081426] p-4 rounded-xl border border-[#162C50]">
-                        <input
-                          type="text"
-                          required
-                          value={newAdminName}
-                          onChange={(e) => setNewAdminName(e.target.value)}
-                          placeholder="Nom de l'administrateur"
-                          className="bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-2 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
-                        />
-                        <input
-                          type="email"
-                          required
-                          value={newAdminEmail}
-                          onChange={(e) => setNewAdminEmail(e.target.value)}
-                          placeholder="Email Google de la personne"
-                          className="bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-2 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
-                        />
-                        <button
-                          type="submit"
-                          className="bg-[#00D68F] hover:bg-[#00b377] text-black font-bold text-xs py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
-                        >
-                          <UserPlus size={14} /> Donner les Accès Admin
-                        </button>
-                      </form>
-
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead>
-                            <tr className="border-b border-[#162C50] text-[#94A3B8] font-semibold">
-                              <th className="pb-3">Nom</th>
-                              <th className="pb-3">Email</th>
-                              <th className="pb-3">Rôle</th>
-                              <th className="pb-3 text-right">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#162C50] text-slate-300">
-                            {adminTeam.map((member) => (
-                              <tr key={member.id} className="hover:bg-[#081426]/50">
-                                <td className="py-3 font-bold text-white">
-                                  {member.role === 'SUPER_ADMIN' ? '👑' : '🛡️'} {member.name}
-                                </td>
-                                <td className="py-3 font-mono text-[#94A3B8]">{member.email}</td>
-                                <td className="py-3">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    member.role === 'SUPER_ADMIN' ? 'bg-amber-400/20 text-amber-400' : 'bg-[#0066FF]/20 text-[#0066FF]'
-                                  }`}>
-                                    {member.role === 'SUPER_ADMIN' ? 'Super-Admin' : 'Admin Délégué'}
-                                  </span>
-                                </td>
-                                <td className="py-3 text-right">
-                                  {member.role === 'SUPER_ADMIN' ? (
-                                    <span className="text-[10px] text-[#94A3B8] italic">Maître</span>
-                                  ) : (
-                                    <button
-                                      onClick={() => handleRemoveAdmin(member.id, member.name)}
-                                      className="text-rose-400 hover:text-rose-300 p-1"
-                                    >
-                                      <Trash2 size={15} />
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
                       </div>
                     </div>
                   )}
@@ -808,7 +637,7 @@ Notre modèle statistique recommande :
                 </div>
               </div>
 
-              {/* BARRE DE SÉLECTION DE CHAMPIONNATS */}
+              {/* BARRE DE SÉLECTION DE CHAMPIONNATS (SERIE A EN TÊTE) */}
               <div className="space-y-2">
                 <span className="text-xs font-bold text-[#94A3B8] uppercase tracking-wider flex items-center gap-1.5">
                   <Globe size={14} className="text-[#0066FF]" /> Filtrer par Championnat :
@@ -834,11 +663,11 @@ Notre modèle statistique recommande :
                 </div>
               </div>
 
-              {/* Matchs du jour filtrés */}
+              {/* Matchs filtrés (Serie A, etc.) */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
-                    Rencontres : {selectedLeagueFilter === 'ALL' ? 'Tous les Championnats' : selectedLeagueFilter}
+                    Rencontres : {selectedLeagueFilter === 'ALL' ? 'Tous les Championnats' : selectedLeagueFilter === 'SA' ? 'Serie A (Italie)' : selectedLeagueFilter}
                   </h2>
                   <span className="text-xs text-[#00D68F] font-bold">{filteredMatches.length} match(s) disponible(s)</span>
                 </div>
@@ -887,7 +716,7 @@ Notre modèle statistique recommande :
             </div>
           )}
 
-          {/* PAGE D'ANALYSE AVEC TABLEAU DE COTES FLASHSCORE AUX VRAIES COULEURS DE MARQUE */}
+          {/* PAGE D'ANALYSE */}
           {currentPage === 'analysis' && (
             <div className="space-y-6">
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
@@ -915,25 +744,22 @@ Notre modèle statistique recommande :
                 </div>
               </div>
 
-              {/* TABLEAU COMPARATIF DE COTES & BOOKMAKERS FLASHSCORE AUX COULEURS DES MARQUES */}
+              {/* TABLEAU DE COTES FLASHSCORE AUX COULEURS DES MARQUES */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <TrendingUp size={16} className="text-[#00D68F]" /> Cotes Officielles & Meilleurs Bonus (Style Flashscore)
-                  </h3>
-                  <span className="text-[11px] text-[#94A3B8]">Cotes 1X2 réelles</span>
-                </div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <TrendingUp size={16} className="text-[#00D68F]" /> Cotes Officielles & Meilleurs Bonus (Style Flashscore)
+                </h3>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-[#162C50] text-[#94A3B8] font-bold uppercase text-[10px]">
-                        <th className="pb-3">Bookmaker Partenaire</th>
-                        <th className="pb-3 text-center">1 (Dom)</th>
-                        <th className="pb-3 text-center">X (Nul)</th>
-                        <th className="pb-3 text-center">2 (Ext)</th>
-                        <th className="pb-3">Code Promo Officiel</th>
-                        <th className="pb-3 text-right">Action</th>
+                        <th className="pb-3">Bookmaker</th>
+                        <th className="pb-3 text-center">1</th>
+                        <th className="pb-3 text-center">X</th>
+                        <th className="pb-3 text-center">2</th>
+                        <th className="pb-3">Code Promo</th>
+                        <th className="pb-3 text-right">Parier</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#162C50]">
@@ -942,51 +768,38 @@ Notre modèle statistique recommande :
                         return (
                           <tr key={p.id} className="hover:bg-[#081426]/60 transition-colors">
                             <td className="py-3.5 flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-lg bg-[#081426] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden shrink-0 shadow-md">
+                              <div className="w-8 h-8 rounded-lg bg-[#081426] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden shrink-0">
                                 {p.logoUrl ? (
                                   <img src={p.logoUrl} alt={p.name} className="w-full h-full object-contain" />
                                 ) : (
                                   <span className={`font-black text-xs ${theme.code}`}>{p.name.substring(0, 2).toUpperCase()}</span>
                                 )}
                               </div>
-                              <div>
-                                <span className="font-extrabold text-white text-xs block">{p.name}</span>
-                                <span className={`text-[10px] font-mono ${theme.code}`}>{p.badge}</span>
-                              </div>
+                              <span className="font-extrabold text-white text-xs">{p.name}</span>
                             </td>
 
                             <td className="py-3.5 text-center">
-                              <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-white text-xs cursor-pointer">
+                              <span className="bg-[#081426] border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-white text-xs">
                                 {p.odds1}
                               </span>
                             </td>
                             <td className="py-3.5 text-center">
-                              <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#94A3B8] text-xs cursor-pointer">
+                              <span className="bg-[#081426] border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#94A3B8] text-xs">
                                 {p.oddsX}
                               </span>
                             </td>
                             <td className="py-3.5 text-center">
-                              <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#00D68F] text-xs cursor-pointer">
+                              <span className="bg-[#081426] border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#00D68F] text-xs">
                                 {p.odds2}
                               </span>
                             </td>
 
                             <td className="py-3.5">
-                              <div className="flex items-center gap-2">
-                                <span className={`font-mono bg-[#162C50] px-2.5 py-1 rounded-lg font-black text-xs ${theme.code}`}>
-                                  {p.promoCode}
-                                </span>
-                                <button
-                                  onClick={() => handleCopyCode(p.id, p.promoCode)}
-                                  className="text-[#94A3B8] hover:text-white text-[10px] flex items-center gap-1"
-                                  title="Copier le code"
-                                >
-                                  {copiedCodeId === p.id ? <Check size={12} className="text-[#00D68F]" /> : <Copy size={12} />}
-                                </button>
-                              </div>
+                              <span className={`font-mono bg-[#162C50] px-2.5 py-1 rounded-lg font-black text-xs ${theme.code}`}>
+                                {p.promoCode}
+                              </span>
                             </td>
 
-                            {/* Bouton Parier aux couleurs officielles (Jaune Melbet, Vert Betwinner, Orange Goldparis, Rouge Betclic) */}
                             <td className="py-3.5 text-right">
                               <a
                                 href={p.url}
@@ -1008,7 +821,7 @@ Notre modèle statistique recommande :
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Probabilités 1X2 (Loi de Poisson)</h3>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Probabilités 1X2</h3>
                   <div className="h-48">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={chartData} layout="vertical">
@@ -1067,11 +880,8 @@ Notre modèle statistique recommande :
                   <h1 className="text-2xl font-black text-white flex items-center gap-2">
                     <Target className="text-[#0066FF]" /> Pronostics Statistiques (Modèle Poisson)
                   </h1>
-                  <p className="text-xs text-[#94A3B8]">
-                    Sélections calculées par notre algorithme de probabilités.
-                  </p>
+                  <p className="text-xs text-[#94A3B8]">Sélections calculées par notre algorithme de probabilités.</p>
                 </div>
-
                 <div className="flex bg-[#0D1E38] p-1 rounded-xl border border-[#162C50]">
                   {(['ALL', '1X2', 'GOALS', 'BTTS'] as const).map((m) => (
                     <button
@@ -1103,9 +913,7 @@ Notre modèle statistique recommande :
                       </div>
 
                       <div className="bg-[#081426] border border-[#162C50] rounded-xl p-3.5 space-y-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
-                          Sélection Recommandée ({type})
-                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">Sélection Recommandée ({type})</span>
                         <div className="text-sm font-extrabold text-[#00D68F] flex items-center gap-2">
                           <CheckCircle2 size={16} className="shrink-0" />
                           <span>{pick}</span>
@@ -1233,31 +1041,6 @@ Notre modèle statistique recommande :
                   }`}>
                     {isSuperAdmin ? '👑 Propriétaire Maître' : isSecondaryAdmin ? '🛡️ Administrateur' : user ? '✓ Membre Connecté' : 'Mode Démo'}
                   </span>
-                </div>
-              </div>
-
-              <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Heart size={16} className="text-[#00D68F]" /> Championnats Favoris
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {LEAGUES_LIST.filter(l => l.code !== 'ALL').map((league) => {
-                    const isFav = favoriteLeagues.includes(league.name);
-                    return (
-                      <button
-                        key={league.code}
-                        onClick={() => {
-                          setFavoriteLeagues(prev => isFav ? prev.filter(l => l !== league.name) : [...prev, league.name]);
-                        }}
-                        className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all ${
-                          isFav ? 'bg-[#0066FF]/20 border-[#0066FF] text-white' : 'bg-[#081426] border-[#162C50] text-[#94A3B8]'
-                        }`}
-                      >
-                        <span className="flex items-center gap-1.5">{league.flag} {league.name}</span>
-                        <span className={`w-2.5 h-2.5 rounded-full ${isFav ? 'bg-[#00D68F]' : 'bg-[#162C50]'}`} />
-                      </button>
-                    );
-                  })}
                 </div>
               </div>
             </div>
