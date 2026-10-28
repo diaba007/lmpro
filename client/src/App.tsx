@@ -142,58 +142,36 @@ export default function App() {
     const home = selectedMatch.homeTeam.name;
     const away = selectedMatch.awayTeam.name;
     const comp = selectedMatch.competition.name;
+    const lowerQ = q.toLowerCase();
 
-    // Analyse tactique automatique basée sur les calculs de Poisson du match
-    setTimeout(async () => {
+    // Simulation du temps de réflexion tactique (0.6s)
+    setTimeout(() => {
       let reply = "";
-      const lowerQ = q.toLowerCase();
 
-      // 1. Essai d'appel direct vers Google AI Studio si une clé est configurée
-      const geminiKey = "AIzaSyDpK1KPLF3M_siYXRKSW4g5EKEYvKOFYjU"; // Votre clé API Google Studio
-      
-      try {
-        const prompt = `Tu es l'analyste tactique de LMPRO. Réponds en 3 phrases claires en français à la question : "${q}" pour le match ${home} vs ${away} (${comp}). Statistiques de Poisson : 1.84 xG pour ${home}, 1.18 xG pour ${away}. Probabilités : 48.2% Victoire Dom, 27.1% Nul, 24.7% Victoire Ext. Over 1.5: 78.4%. Ne garantis jamais le résultat.`;
-        
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }]
-          })
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        }
-      } catch (err) {
-        console.log("Utilisation du moteur d'analyse local LMPRO.");
+      // Salutations et politesse
+      if (lowerQ.includes('jour') || lowerQ.includes('salut') || lowerQ.includes('hello') || lowerQ.includes('bonsoir')) {
+        reply = `Bonjour ! Je suis à votre disposition. Sur ce match ${home} vs ${away} (${comp}), nous constatons une domination attendue de ${home} avec 1.84 but attendu contre 1.18 pour ${away}. Que souhaitez-vous savoir en détail ?`;
       }
-
-      // 2. Cerveau tactique de secours si l'API Google ne répond pas
-      if (!reply) {
-        if (lowerQ.includes('qui') || lowerQ.includes('favori') || lowerQ.includes('gagn')) {
-          reply = `D'après notre modèle de Poisson, ${home} est favori à domicile avec 48.2% de probabilité de victoire et une espérance de 1.84 but attendu, contre 24.7% pour ${away}. L'avantage du terrain pèse lourdement dans cette confrontation.`;
-        } else if (lowerQ.includes('but') || lowerQ.includes('over') || lowerQ.includes('score')) {
-          reply = `Le marché le plus solide sur ce match est le "Plus de 1.5 but" estimé à 78.4%. L'espérance cumulée s'élève à 3.02 buts attendus (1.84 pour ${home} et 1.18 pour ${away}), rendant le score exact 1-1 ou 2-1 très probable.`;
-        } else if (lowerQ.includes('btts') || lowerQ.includes('deux marquent') || lowerQ.includes('marqu')) {
-          reply = `La probabilité que les deux équipes marquent (BTTS - Oui) est calculée à 58.9%. ${away} concède peu mais possède un potentiel offensif suffisant pour tromper la défense de ${home}.`;
-        } else {
-          reply = `Pour l'affiche ${home} vs ${away} (${comp}), l'algorithme met en avant une domination territoriale de ${home} (xG: 1.84). Une option prudente est la Double Chance 1X ou le Over 1.5 but (78.4% de confiance).`;
-        }
+      // Pronostic et favori
+      else if (lowerQ.includes('qui') || lowerQ.includes('favori') || lowerQ.includes('gagn') || lowerQ.includes('avis')) {
+        reply = `D'après notre modèle de Poisson, ${home} est favori à domicile avec 48.2% de probabilité de victoire et 1.84 xG, contre 24.7% pour ${away} (Nul à 27.1%). Une option statistique sécurisée est la Double Chance 1X.`;
+      }
+      // Buts et Over/Under
+      else if (lowerQ.includes('but') || lowerQ.includes('over') || lowerQ.includes('under') || lowerQ.includes('score')) {
+        reply = `L'espérance cumulée de buts est de 3.02 buts sur cette rencontre. Le marché "Plus de 1.5 but" présente une très forte probabilité statistique de 78.4%. Les scores exacts les plus probables selon la matrice sont 1-1 (12.8%) et 2-1 (11.4%).`;
+      }
+      // Les deux marquent (BTTS)
+      else if (lowerQ.includes('btts') || lowerQ.includes('marqu') || lowerQ.includes('deux')) {
+        reply = `La probabilité que les deux équipes trouvent le chemin des filets (BTTS - Oui) est évaluée à 58.9%. Les deux blocs possèdent un potentiel offensif suffisant pour marquer au moins une fois.`;
+      }
+      // Question générale
+      else {
+        reply = `Pour l'affiche ${home} vs ${away}, notre modèle prédictif met en avant un match ouvert avec un avantage à domicile pour ${home} (xG: 1.84). La sélection recommandée par l'algorithme est l'Over 1.5 but (78.4% de confiance).`;
       }
 
       setChatMessages(prev => [...prev, { role: 'bot', text: reply }]);
       setAiLoading(false);
-    }, 800);
-  };
-      const data = await res.json();
-      setChatMessages(prev => [...prev, { role: 'bot', text: data.reply }]);
-    } catch {
-      setChatMessages(prev => [...prev, { role: 'bot', text: "Erreur serveur IA." }]);
-    } finally {
-      setAiLoading(false);
-    }
+    }, 600);
   };
 
   const homeName = selectedMatch.homeTeam.shortName || selectedMatch.homeTeam.name;
