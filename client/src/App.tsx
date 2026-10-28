@@ -35,8 +35,7 @@ import {
   FolderOpen
 } from 'lucide-react';
 
-import { PartnersView, INITIAL_PARTNERS, PartnerBookmaker, getPartnerTheme } from './components/PartnersView';
-
+import { PartnersView, INITIAL_PARTNERS, getPartnerTheme } from './components/PartnersView';
 // --- CONFIGURATION FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyDpK1KPLF3M_siYXRKSW4g5EKEYvKOFYjU",
