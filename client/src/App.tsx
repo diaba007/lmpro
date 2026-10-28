@@ -1,3 +1,7 @@
+import melbetLogo from './assets/partners/melbet.png';
+import betwinnerLogo from './assets/partners/betwinner.png';
+import goldparisLogo from './assets/partners/goldparis.png';
+import betclicLogo from './assets/partners/betclic.png';
 import React, { useState, useEffect } from 'react';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
@@ -193,66 +197,61 @@ export default function App() {
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
   // LISTE DES PARTENAIRES AVEC COTES ET LOGOS LOCAUX
-  const [partners, setPartners] = useState<PartnerBookmaker[]>(() => {
-    const saved = localStorage.getItem('lmpro_partners');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+  // LISTE DES PARTENAIRES AVEC IMPORTATION DIRECTE DES LOGOS
+  const [partners, setPartners] = useState<PartnerBookmaker[]>([
+    {
+      id: 'melbet',
+      name: 'Melbet',
+      logoUrl: melbetLogo,
+      bonus: '+200% jusqu\'à 130 000 FCFA',
+      promoCode: 'LMPRO',
+      url: 'https://melbet.com',
+      odds1: '2.05',
+      oddsX: '3.45',
+      odds2: '3.80',
+      color: 'bg-amber-500 text-black',
+      badge: 'TOP BONUS AFRIQUE'
+    },
+    {
+      id: 'betwinner',
+      name: 'Betwinner',
+      logoUrl: betwinnerLogo,
+      bonus: '+100% de bonus exclusif',
+      promoCode: 'LMPRO',
+      url: 'https://betwinner.com',
+      odds1: '2.08',
+      oddsX: '3.40',
+      odds2: '3.75',
+      color: 'bg-emerald-600 text-white',
+      badge: 'RECOMMANDÉ'
+    },
+    {
+      id: 'goldparis',
+      name: 'Goldparis',
+      logoUrl: goldparisLogo,
+      bonus: 'Pari Gratuit de Bienvenue',
+      promoCode: 'LMPRO',
+      url: 'https://goldparis.com',
+      odds1: '2.02',
+      oddsX: '3.50',
+      odds2: '3.90',
+      color: 'bg-yellow-500 text-black',
+      badge: 'EXCLUSIF CI'
+    },
+    {
+      id: 'betclic',
+      name: 'Betclic',
+      logoUrl: betclicLogo,
+      bonus: '1er pari remboursé jusqu\'à 100€',
+      promoCode: 'LMPRO',
+      url: 'https://betclic.com',
+      odds1: '2.00',
+      oddsX: '3.35',
+      odds2: '3.70',
+      color: 'bg-rose-600 text-white',
+      badge: 'OFFICIEL'
     }
-    return [
-      {
-        id: 'melbet',
-        name: 'Melbet',
-        logoUrl: '/partners/melbet.png',
-        bonus: '+200% jusqu\'à 130 000 FCFA',
-        promoCode: 'LMPRO',
-        url: 'https://melbet.com',
-        odds1: '2.05',
-        oddsX: '3.45',
-        odds2: '3.80',
-        color: 'bg-amber-500 text-black',
-        badge: 'TOP BONUS AFRIQUE'
-      },
-      {
-        id: 'betwinner',
-        name: 'Betwinner',
-        logoUrl: '/partners/betwinner.png',
-        bonus: '+100% de bonus exclusif',
-        promoCode: 'LMPRO',
-        url: 'https://betwinner.com',
-        odds1: '2.08',
-        oddsX: '3.40',
-        odds2: '3.75',
-        color: 'bg-emerald-600 text-white',
-        badge: 'RECOMMANDÉ'
-      },
-      {
-        id: 'goldparis',
-        name: 'Goldparis',
-        logoUrl: '/partners/goldparis.png',
-        bonus: 'Pari Gratuit de Bienvenue',
-        promoCode: 'LMPRO',
-        url: 'https://goldparis.com',
-        odds1: '2.02',
-        oddsX: '3.50',
-        odds2: '3.90',
-        color: 'bg-yellow-500 text-black',
-        badge: 'EXCLUSIF CI'
-      },
-      {
-        id: 'betclic',
-        name: 'Betclic',
-        logoUrl: '/partners/betclic.png',
-        bonus: '1er pari remboursé jusqu\'à 100€',
-        promoCode: 'LMPRO',
-        url: 'https://betclic.com',
-        odds1: '2.00',
-        oddsX: '3.35',
-        odds2: '3.70',
-        color: 'bg-rose-600 text-white',
-        badge: 'OFFICIEL'
-      }
-    ];
-  });
+  ]);
 
   const [adminNotification, setAdminNotification] = useState<string | null>(null);
 
