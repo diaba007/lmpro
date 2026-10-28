@@ -35,8 +35,8 @@ import {
   FolderOpen
 } from 'lucide-react';
 
-// IMPORTATION DU BLOC DÉDIÉ AUX PARTENAIRES & CODES PROMOS
-import { PartnersView, INITIAL_PARTNERS, PartnerBookmaker } from './components/PartnersView';
+// IMPORTATION DES PARTENAIRES ET DES COULEURS OFFICIELLES
+import { PartnersView, INITIAL_PARTNERS, PartnerBookmaker, getPartnerTheme } from './components/PartnersView';
 
 // --- CONFIGURATION FIREBASE ---
 const firebaseConfig = {
@@ -181,7 +181,7 @@ export default function App() {
 
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
-  // CHARGEMENT DES PARTENAIRES AVEC SAUVEGARDE LOCALE
+  // CHARGEMENT DES PARTENAIRES (MELBET, BETWINNER, GOLDPARIS, BETCLIC)
   const [partners, setPartners] = useState<PartnerBookmaker[]>(() => {
     const saved = localStorage.getItem('lmpro_partners');
     if (saved) {
@@ -260,7 +260,6 @@ export default function App() {
     }, 2500);
   };
 
-  // UPLOAD D'IMAGE DEPUIS L'ORDINATEUR
   const handleUploadLogoFromPC = (partnerId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -326,7 +325,7 @@ export default function App() {
     setTimeout(() => {
       let reply = "";
       if (lowerQ.includes('jour') || lowerQ.includes('salut') || lowerQ.includes('hello')) {
-        reply = `Bonjour ! Sur ce match ${home} vs ${away} (${comp}), nous estimons 1.84 xG pour ${home} contre 1.18 pour ${away}. N'oubliez pas nos codes promo (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldparis: LMPRO) !`;
+        reply = `Bonjour ! Sur ce match ${home} vs ${away} (${comp}), nous estimons 1.84 xG pour ${home} contre 1.18 pour ${away}. Utilisez nos codes promos officiels (Melbet: XPRO225, Betwinner: DKC10, Goldparis: LMPRO, Betclic: XPRONO) pour doubler vos dépôts !`;
       } else if (lowerQ.includes('qui') || lowerQ.includes('favori') || lowerQ.includes('gagn')) {
         reply = `D'après notre modèle de Poisson, ${home} est favori à domicile avec 48.2% de probabilité de victoire (Nul 27.1%, ${away} 24.7%).`;
       } else if (lowerQ.includes('but') || lowerQ.includes('over') || lowerQ.includes('score')) {
@@ -478,10 +477,10 @@ export default function App() {
         <div className="px-6 py-2.5 flex items-center justify-between text-xs border-b bg-[#00D68F]/10 border-[#00D68F]/20 text-[#00D68F]">
           <div className="flex items-center gap-2">
             <Radio size={16} className="animate-pulse text-[#00D68F]" />
-            <span><strong className="text-white">COTES & PARTENAIRES OFFICIELS :</strong> Melbet (Jaune), Betwinner (Vert), Goldparis (Orange) & Betclic (Rouge)</span>
+            <span><strong className="text-white">COTES & PARTENAIRES OFFICIELS :</strong> Melbet, Betwinner, Goldparis & Betclic</span>
           </div>
           <span className="font-mono bg-[#162C50] text-white px-2 py-0.5 rounded text-[10px] font-bold">
-            PRO V2.3
+            PRO V2.4
           </span>
         </div>
 
@@ -570,65 +569,68 @@ export default function App() {
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                        {partners.map((p) => (
-                          <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-4">
-                            <div className="flex items-center justify-between">
-                              <span className="font-extrabold text-white text-sm">{p.name}</span>
-                              <div className="w-10 h-10 rounded-lg bg-[#0D1E38] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden">
-                                {p.logoUrl ? (
-                                  <img src={p.logoUrl} alt={p.name} className="w-full h-full object-contain" />
-                                ) : (
-                                  <span className={`font-black text-xs ${p.codeColor}`}>{p.name.substring(0, 2).toUpperCase()}</span>
-                                )}
+                        {partners.map((p) => {
+                          const theme = getPartnerTheme(p.id);
+                          return (
+                            <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-4">
+                              <div className="flex items-center justify-between">
+                                <span className="font-extrabold text-white text-sm">{p.name}</span>
+                                <div className="w-10 h-10 rounded-lg bg-[#0D1E38] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden">
+                                  {p.logoUrl ? (
+                                    <img src={p.logoUrl} alt={p.name} className="w-full h-full object-contain" />
+                                  ) : (
+                                    <span className={`font-black text-xs ${theme.code}`}>{p.name.substring(0, 2).toUpperCase()}</span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
 
-                            {/* BOUTON QUI OUVRE L'ACCÈS À LA MACHINE */}
-                            <div>
-                              <label className="w-full py-2.5 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#0066FF]/20">
-                                <Upload size={14} />
-                                <span>Choisir le logo sur mon PC</span>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => handleUploadLogoFromPC(p.id, e)}
-                                  className="hidden"
-                                />
-                              </label>
-                            </div>
+                              {/* BOUTON QUI OUVRE L'ACCÈS À LA MACHINE */}
+                              <div>
+                                <label className="w-full py-2.5 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#0066FF]/20">
+                                  <Upload size={14} />
+                                  <span>Choisir le logo sur mon PC</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => handleUploadLogoFromPC(p.id, e)}
+                                    className="hidden"
+                                  />
+                                </label>
+                              </div>
 
-                            <div className="pt-2 border-t border-[#162C50] space-y-2">
-                              <div>
-                                <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Code Promo :</label>
-                                <input
-                                  type="text"
-                                  defaultValue={p.promoCode}
-                                  id={`code-${p.id}`}
-                                  className={`w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1 text-xs font-mono font-bold outline-none focus:border-[#0066FF] ${p.codeColor}`}
-                                />
+                              <div className="pt-2 border-t border-[#162C50] space-y-2">
+                                <div>
+                                  <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Code Promo :</label>
+                                  <input
+                                    type="text"
+                                    defaultValue={p.promoCode}
+                                    id={`code-${p.id}`}
+                                    className={`w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1 text-xs font-mono font-bold outline-none focus:border-[#0066FF] ${theme.code}`}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Lien d'affiliation officiel :</label>
+                                  <input
+                                    type="text"
+                                    defaultValue={p.url}
+                                    id={`url-${p.id}`}
+                                    className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1 text-xs text-white font-mono outline-none focus:border-[#0066FF]"
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    const newC = (document.getElementById(`code-${p.id}`) as HTMLInputElement).value;
+                                    const newU = (document.getElementById(`url-${p.id}`) as HTMLInputElement).value;
+                                    handleUpdatePartner(p.id, newC, newU);
+                                  }}
+                                  className="w-full py-1.5 bg-[#162C50] hover:bg-[#0066FF] text-white rounded-lg text-[11px] font-bold transition-colors"
+                                >
+                                  Enregistrer
+                                </button>
                               </div>
-                              <div>
-                                <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Lien d'affiliation officiel :</label>
-                                <input
-                                  type="text"
-                                  defaultValue={p.url}
-                                  id={`url-${p.id}`}
-                                  className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1 text-xs text-white font-mono outline-none focus:border-[#0066FF]"
-                                />
-                              </div>
-                              <button
-                                onClick={() => {
-                                  const newC = (document.getElementById(`code-${p.id}`) as HTMLInputElement).value;
-                                  const newU = (document.getElementById(`url-${p.id}`) as HTMLInputElement).value;
-                                  handleUpdatePartner(p.id, newC, newU);
-                                }}
-                                className="w-full py-1.5 bg-[#162C50] hover:bg-[#0066FF] text-white rounded-lg text-[11px] font-bold transition-colors"
-                              >
-                                Enregistrer
-                              </button>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -824,7 +826,7 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE D'ANALYSE AVEC TABLEAU DE COTES FLASHSCORE AUX COULEURS DES MARQUES */}
+          {/* PAGE D'ANALYSE AVEC TABLEAU DE COTES FLASHSCORE AUX VRAIES COULEURS DE MARQUE */}
           {currentPage === 'analysis' && (
             <div className="space-y-6">
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
@@ -852,7 +854,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* TABLEAU COMPARATIF DE COTES & BOOKMAKERS FLASHSCORE */}
+              {/* TABLEAU COMPARATIF DE COTES & BOOKMAKERS FLASHSCORE AUX COULEURS DES MARQUES */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -874,67 +876,70 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#162C50]">
-                      {partners.map((p) => (
-                        <tr key={p.id} className="hover:bg-[#081426]/60 transition-colors">
-                          <td className="py-3.5 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-[#081426] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden shrink-0 shadow-md">
-                              {p.logoUrl ? (
-                                <img src={p.logoUrl} alt={p.name} className="w-full h-full object-contain" />
-                              ) : (
-                                <span className={`font-black text-xs ${p.codeColor}`}>{p.name.substring(0, 2).toUpperCase()}</span>
-                              )}
-                            </div>
-                            <div>
-                              <span className="font-extrabold text-white text-xs block">{p.name}</span>
-                              <span className={`text-[10px] font-mono ${p.codeColor}`}>{p.badge}</span>
-                            </div>
-                          </td>
+                      {partners.map((p) => {
+                        const theme = getPartnerTheme(p.id);
+                        return (
+                          <tr key={p.id} className="hover:bg-[#081426]/60 transition-colors">
+                            <td className="py-3.5 flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-lg bg-[#081426] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden shrink-0 shadow-md">
+                                {p.logoUrl ? (
+                                  <img src={p.logoUrl} alt={p.name} className="w-full h-full object-contain" />
+                                ) : (
+                                  <span className={`font-black text-xs ${theme.code}`}>{p.name.substring(0, 2).toUpperCase()}</span>
+                                )}
+                              </div>
+                              <div>
+                                <span className="font-extrabold text-white text-xs block">{p.name}</span>
+                                <span className={`text-[10px] font-mono ${theme.code}`}>{p.badge}</span>
+                              </div>
+                            </td>
 
-                          <td className="py-3.5 text-center">
-                            <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-white text-xs cursor-pointer">
-                              {p.odds1}
-                            </span>
-                          </td>
-                          <td className="py-3.5 text-center">
-                            <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#94A3B8] text-xs cursor-pointer">
-                              {p.oddsX}
-                            </span>
-                          </td>
-                          <td className="py-3.5 text-center">
-                            <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#00D68F] text-xs cursor-pointer">
-                              {p.odds2}
-                            </span>
-                          </td>
-
-                          <td className="py-3.5">
-                            <div className="flex items-center gap-2">
-                              <span className={`font-mono bg-[#162C50] px-2.5 py-1 rounded-lg font-black text-xs ${p.codeColor}`}>
-                                {p.promoCode}
+                            <td className="py-3.5 text-center">
+                              <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-white text-xs cursor-pointer">
+                                {p.odds1}
                               </span>
-                              <button
-                                onClick={() => handleCopyCode(p.id, p.promoCode)}
-                                className="text-[#94A3B8] hover:text-white text-[10px] flex items-center gap-1"
-                                title="Copier le code"
-                              >
-                                {copiedCodeId === p.id ? <Check size={12} className="text-[#00D68F]" /> : <Copy size={12} />}
-                              </button>
-                            </div>
-                          </td>
+                            </td>
+                            <td className="py-3.5 text-center">
+                              <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#94A3B8] text-xs cursor-pointer">
+                                {p.oddsX}
+                              </span>
+                            </td>
+                            <td className="py-3.5 text-center">
+                              <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#00D68F] text-xs cursor-pointer">
+                                {p.odds2}
+                              </span>
+                            </td>
 
-                          {/* Bouton Parier aux couleurs officielles de la marque */}
-                          <td className="py-3.5 text-right">
-                            <a
-                              href={p.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`inline-flex items-center gap-1.5 font-black px-3.5 py-2 rounded-xl text-xs transition-all shadow-md ${p.buttonGradient}`}
-                            >
-                              <span>Parier</span>
-                              <ExternalLink size={12} />
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
+                            <td className="py-3.5">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-mono bg-[#162C50] px-2.5 py-1 rounded-lg font-black text-xs ${theme.code}`}>
+                                  {p.promoCode}
+                                </span>
+                                <button
+                                  onClick={() => handleCopyCode(p.id, p.promoCode)}
+                                  className="text-[#94A3B8] hover:text-white text-[10px] flex items-center gap-1"
+                                  title="Copier le code"
+                                >
+                                  {copiedCodeId === p.id ? <Check size={12} className="text-[#00D68F]" /> : <Copy size={12} />}
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Bouton Parier aux couleurs officielles (Jaune Melbet, Vert Betwinner, Orange Goldparis, Rouge Betclic) */}
+                            <td className="py-3.5 text-right">
+                              <a
+                                href={p.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`inline-flex items-center gap-1.5 font-black px-3.5 py-2 rounded-xl text-xs transition-all shadow-md ${theme.parierBtn}`}
+                              >
+                                <span>Parier</span>
+                                <ExternalLink size={12} />
+                              </a>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
