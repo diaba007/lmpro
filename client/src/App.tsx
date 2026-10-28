@@ -495,7 +495,20 @@ export default function App() {
                       <BarChart data={chartData} layout="vertical">
                         <XAxis type="number" domain={[0, 100]} unit="%" stroke="#94A3B8" />
                         <YAxis dataKey="name" type="category" stroke="#FFFFFF" width={90} />
-                        <Tooltip />
+                        <Tooltip 
+  contentStyle={{ 
+    backgroundColor: '#081426', 
+    borderColor: '#162C50', 
+    borderRadius: '12px',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+    padding: '10px 14px',
+    color: '#FFFFFF'
+  }}
+  itemStyle={{ color: '#00D68F', fontWeight: 'bold', fontSize: '14px', fontFamily: 'monospace' }}
+  labelStyle={{ color: '#94A3B8', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}
+  formatter={(value: any) => [`${value}%`, 'Probabilité']}
+  cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
+/>
                         <Bar dataKey="prob" radius={[0, 6, 6, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
