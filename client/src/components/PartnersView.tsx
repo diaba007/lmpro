@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gift, Copy, Check, ExternalLink, Flame } from 'lucide-react';
+import { Gift, Copy, Check, ExternalLink, Flame, ShieldCheck } from 'lucide-react';
 
 export interface PartnerBookmaker {
   id: string;
@@ -8,10 +8,8 @@ export interface PartnerBookmaker {
   bonus: string;
   promoCode: string;
   url: string;
-  odds1: string;
-  oddsX: string;
-  odds2: string;
   badge: string;
+  paymentMethods: string;
 }
 
 export const INITIAL_PARTNERS: PartnerBookmaker[] = [
@@ -22,10 +20,8 @@ export const INITIAL_PARTNERS: PartnerBookmaker[] = [
     bonus: '+200% jusqu\'à 130 000 FCFA sur 1er dépôt',
     promoCode: 'XPRO225',
     url: 'https://melbet.com',
-    odds1: '2.05',
-    oddsX: '3.45',
-    odds2: '3.80',
-    badge: 'TOP BONUS AFRIQUE'
+    badge: 'TOP BONUS AFRIQUE',
+    paymentMethods: 'Wave, Orange Money, MTN MoMo, Moov, Carte'
   },
   {
     id: 'betwinner',
@@ -34,10 +30,8 @@ export const INITIAL_PARTNERS: PartnerBookmaker[] = [
     bonus: '+100% de bonus exclusif de bienvenue',
     promoCode: 'DKC10',
     url: 'https://betwinner.com',
-    odds1: '2.08',
-    oddsX: '3.40',
-    odds2: '3.75',
-    badge: 'RECOMMANDÉ'
+    badge: 'RECOMMANDÉ',
+    paymentMethods: 'Wave, Orange Money, MTN, Moov, Crypto'
   },
   {
     id: 'goldparis',
@@ -46,10 +40,8 @@ export const INITIAL_PARTNERS: PartnerBookmaker[] = [
     bonus: 'Paris Gratuits & Bonus VIP hebdomadaire',
     promoCode: 'LMPRO',
     url: 'https://goldparis.com',
-    odds1: '2.02',
-    oddsX: '3.50',
-    odds2: '3.90',
-    badge: 'EXCLUSIF CI'
+    badge: 'EXCLUSIF CI',
+    paymentMethods: 'Orange Money, MTN, Wave, Espèces'
   },
   {
     id: 'betclic',
@@ -58,13 +50,12 @@ export const INITIAL_PARTNERS: PartnerBookmaker[] = [
     bonus: '1er pari remboursé jusqu\'à 100€ / équivalent',
     promoCode: 'XPRONO',
     url: 'https://betclic.com',
-    odds1: '2.00',
-    oddsX: '3.35',
-    odds2: '3.70',
-    badge: 'INTERNATIONAL'
+    badge: 'INTERNATIONAL',
+    paymentMethods: 'Carte Bancaire, Virement, Portefeuilles'
   }
 ];
 
+// THÈMES OFFICIELS PAR MARQUE
 export const getPartnerTheme = (id: string) => {
   switch (id.toLowerCase()) {
     case 'melbet':
@@ -119,35 +110,41 @@ interface PartnersViewProps {
 export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode, copiedCodeId }) => {
   return (
     <div className="space-y-6">
+      {/* En-tête de la page Bonus & Partenaires */}
       <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
             <Gift className="text-amber-400" /> Partenaires Officiels & Bonus Vérifiés
           </h1>
           <p className="text-xs text-[#94A3B8] mt-1">
-            Utilisez nos codes promos exclusifs pour doubler vos dépôts sur Melbet, Betwinner, Goldparis et Betclic.
+            Inscrivez-vous avec nos codes promos exclusifs pour doubler vos premiers dépôts.
           </p>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-bold">
+        <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-bold">
           <Flame size={14} className="text-amber-400" /> Bonus Actifs 2026
         </div>
       </div>
 
+      {/* Grille des 4 Partenaires (Sans cotes flottantes : fokus sur les bonus et les codes) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {partners.map((partner) => {
           const theme = getPartnerTheme(partner.id);
           return (
             <div 
               key={partner.id}
-              className={`bg-[#0D1E38] border ${theme.border} rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 shadow-xl space-y-4`}
+              className={`bg-[#0D1E38] border ${theme.border} rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 shadow-xl space-y-5`}
             >
               <div>
-                {/* En-tête : Logo et Nom */}
+                {/* En-tête : Logo Rectangulaire et Badge */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-11 w-28 sm:w-32 rounded-xl bg-[#081426] border border-[#162C50] flex items-center justify-center px-2 py-1 overflow-hidden shadow-inner shrink-0">
+                    <div className="h-11 w-32 rounded-xl bg-[#081426] border border-[#162C50] flex items-center justify-center px-2 py-1 overflow-hidden shadow-inner shrink-0">
                       {partner.logoUrl ? (
-                        <img src={partner.logoUrl} alt={partner.name} className="max-h-full max-w-full object-contain" />
+                        <img 
+                          src={partner.logoUrl} 
+                          alt={partner.name} 
+                          className="max-h-full max-w-full object-contain"
+                        />
                       ) : (
                         <span className={`font-black text-xs tracking-wider ${theme.code}`}>
                           {partner.name.toUpperCase()}
@@ -155,36 +152,31 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode
                       )}
                     </div>
                     <div>
-                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${theme.badge}`}>
+                      <h2 className="text-xl font-black text-white">{partner.name}</h2>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full inline-block mt-0.5 ${theme.badge}`}>
                         {partner.badge}
                       </span>
-                      <h2 className="text-lg font-black text-white mt-1">{partner.name}</h2>
                     </div>
                   </div>
                 </div>
 
-                <p className="text-xs text-[#94A3B8] mt-3 font-medium">
-                  Offre de bienvenue : <strong className="text-white">{partner.bonus}</strong>
-                </p>
+                {/* Offre de bienvenue claire */}
+                <div className="mt-4 p-3 bg-[#081426] rounded-xl border border-[#162C50]">
+                  <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">Bonus de bienvenue garanti :</span>
+                  <p className="text-xs font-bold text-white mt-0.5 leading-relaxed">
+                    {partner.bonus}
+                  </p>
+                </div>
 
-                {/* COTES 1X2 EN 3 COLONNES VISIBLES SUR PC ET MOBILE */}
-                <div className="grid grid-cols-3 gap-2 bg-[#081426] p-2.5 rounded-xl border border-[#162C50] text-center mt-3">
-                  <div>
-                    <span className="text-[10px] text-[#94A3B8] uppercase block font-semibold">1 (Dom)</span>
-                    <span className="text-xs font-mono font-black text-white">{partner.odds1}</span>
-                  </div>
-                  <div className="border-x border-[#162C50]">
-                    <span className="text-[10px] text-[#94A3B8] uppercase block font-semibold">Nul (X)</span>
-                    <span className="text-xs font-mono font-black text-slate-300">{partner.oddsX}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-[#94A3B8] uppercase block font-semibold">2 (Ext)</span>
-                    <span className={`text-xs font-mono font-black ${theme.code}`}>{partner.odds2}</span>
-                  </div>
+                {/* Moyens de paiements acceptés */}
+                <div className="mt-2 text-[11px] text-[#94A3B8] flex items-center gap-1.5">
+                  <ShieldCheck size={13} className="text-[#00D68F] shrink-0" />
+                  <span>Dépôts/Retraits : <strong className="text-slate-300">{partner.paymentMethods || 'Wave, Orange, MTN'}</strong></span>
                 </div>
               </div>
 
-              <div className="space-y-3 pt-1">
+              <div className="space-y-3 pt-2">
+                {/* Code Promo avec bouton Copier */}
                 <div className="bg-[#081426] border border-[#162C50] p-3 rounded-xl flex items-center justify-between">
                   <div>
                     <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">Code Promo Officiel :</span>
@@ -210,13 +202,14 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode
                   </button>
                 </div>
 
+                {/* Bouton d'inscription direct aux couleurs de la marque */}
                 <a
                   href={partner.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`w-full py-3.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${theme.button}`}
                 >
-                  <span>Parier sur {partner.name} avec Bonus</span>
+                  <span>Créer mon compte sur {partner.name} avec Bonus</span>
                   <ExternalLink size={14} />
                 </a>
               </div>

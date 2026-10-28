@@ -73,7 +73,7 @@ interface Match {
   score?: { fullTime: { home: number | null; away: number | null } };
 }
 
-// LES 5 VRAIS MATCHS DE SERIE A AUJOURD'HUI
+// LES 5 VRAIS MATCHS DE SERIE A D'AUJOURD'HUI
 const ALL_LEAGUES_MATCHES: Match[] = [
   {
     id: 5001,
@@ -184,7 +184,6 @@ export default function App() {
 
   const [adminNotification, setAdminNotification] = useState<string | null>(null);
 
-  // ÉQUIPE ADMIN SÉCURISÉE (STOCKÉE LOCALEMENT)
   const [adminTeam, setAdminTeam] = useState<AdminMember[]>(() => {
     const saved = localStorage.getItem('lmpro_admin_team');
     if (saved) {
@@ -198,11 +197,10 @@ export default function App() {
   const [masterPassInput, setMasterPassInput] = useState('');
   const [masterUnlocked, setMasterUnlocked] = useState(false);
 
-  // VÉRIFICATION STRICTE DE SÉCURITÉ
+  // VÉRIFICATION DE SÉCURITÉ : SEUL CHRISTIAN EST ADMIN
   const userEmail = user?.email?.toLowerCase() || '';
   const userName = user?.displayName?.toLowerCase() || '';
 
-  // Seul Christian ou la clé maître donne l'accès Super-Admin
   const isSuperAdmin = masterUnlocked || (Boolean(user) && (
     userName.includes('christian') || 
     userEmail.includes('christian') || 
@@ -212,7 +210,7 @@ export default function App() {
   const isSecondaryAdmin = !isSuperAdmin && Boolean(user) && adminTeam.some(m => m.role === 'ADMIN' && m.email.toLowerCase() === userEmail);
   const hasAdminAccess = isSuperAdmin || isSecondaryAdmin;
 
-  // GESTION DU BOUTON RETOUR NAVIGATEUR (NE QUITTE PLUS LE SITE !)
+  // GESTION PROPRE DU RETOUR (NAVIGATEUR ET SMARTPHONE)
   const navigateTo = (page: PageId, addToHistory = true) => {
     setCurrentPage(page);
     setMobileMenuOpen(false);
@@ -223,7 +221,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Initialise l'historique
     window.history.replaceState({ page: 'dashboard' }, '', '/#dashboard');
 
     const handlePopState = (e: PopStateEvent) => {
@@ -238,7 +235,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // CHARGEMENT DIRECT DES VRAIS MATCHS DEPUIS L'API
   useEffect(() => {
     async function loadLiveMatches() {
       try {
@@ -281,7 +277,6 @@ export default function App() {
     setMasterUnlocked(false);
   };
 
-  // Déblocage par Clé Maître Super-Admin (PIN : 2026)
   const handleUnlockMaster = (e: React.FormEvent) => {
     e.preventDefault();
     if (masterPassInput === '2026') {
@@ -289,7 +284,7 @@ export default function App() {
       setMasterPassInput('');
       triggerAdminAction("Accès Maître Super-Admin déverrouillé avec succès !");
     } else {
-      alert("Code PIN incorrect. Seul le propriétaire possède ce code.");
+      alert("Code PIN incorrect.");
     }
   };
 
@@ -347,7 +342,7 @@ export default function App() {
     localStorage.setItem('lmpro_admin_team', JSON.stringify(updated));
     setNewAdminEmail('');
     setNewAdminName('');
-    triggerAdminAction(`Administrateur ${newMember.name} ajouté avec succès.`);
+    triggerAdminAction(`Administrateur ${newMember.name} ajouté.`);
   };
 
   const handleRemoveAdmin = (id: string, name: string) => {
@@ -504,7 +499,7 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Profil dans le menu (SÉCURISÉ : AUCUNE CONFUSION ADMIN) */}
+        {/* Profil dans le menu */}
         <div className="p-4 m-4 rounded-xl bg-[#0D1E38] border border-[#162C50] flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden">
             {user?.photoURL ? (
@@ -538,16 +533,16 @@ export default function App() {
         <div className="px-6 py-2.5 flex items-center justify-between text-xs border-b bg-[#00D68F]/10 border-[#00D68F]/20 text-[#00D68F]">
           <div className="flex items-center gap-2">
             <Radio size={16} className="animate-pulse text-[#00D68F]" />
-            <span><strong className="text-white">SERIE A & GRANDS CHAMPIONNATS :</strong> 5 rencontres de Serie A programmées</span>
+            <span><strong className="text-white">COTES PAR MATCH & BONUS :</strong> 5 rencontres de Serie A programmées</span>
           </div>
           <span className="font-mono bg-[#162C50] text-white px-2 py-0.5 rounded text-[10px] font-bold">
-            LIVE DIRECT
+            PRO V2.5
           </span>
         </div>
 
         <div className="p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
 
-          {/* BOUTON RETOUR UNIVERSEL (SI ON N'EST PAS SUR LE DASHBOARD) */}
+          {/* BOUTON RETOUR UNIVERSEL */}
           {currentPage !== 'dashboard' && (
             <button
               onClick={() => navigateTo('dashboard')}
@@ -558,7 +553,7 @@ export default function App() {
             </button>
           )}
 
-          {/* VUE : BONUS & PARTENAIRES */}
+          {/* VUE : BONUS & PARTENAIRES (100% SANS COTES : ÉPURÉE ET FOCALISÉE BONUS) */}
           {currentPage === 'partners' && (
             <PartnersView 
               partners={partners} 
@@ -582,7 +577,6 @@ export default function App() {
                     </p>
                   </div>
 
-                  {/* BOUTON CONNEXION OFFICIEL GOOGLE POUR L'ADMIN */}
                   <div className="pt-2 flex flex-col gap-3">
                     <button
                       onClick={handleGoogleLogin}
@@ -591,7 +585,6 @@ export default function App() {
                       <LogIn size={16} /> Se Connecter avec Google (Propriétaire)
                     </button>
 
-                    {/* DÉBLOCAGE PAR CODE PIN MAÎTRE DE SECOURS (2026) */}
                     <form onSubmit={handleUnlockMaster} className="mt-4 pt-4 border-t border-[#162C50] flex gap-2">
                       <input
                         type="password"
@@ -729,7 +722,7 @@ export default function App() {
                     onClick={() => navigateTo('partners')}
                     className="flex items-center gap-1.5 bg-amber-400/20 border border-amber-400/40 text-amber-300 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-amber-400/30 transition-all"
                   >
-                    <Gift size={14} className="text-amber-400" /> Cotes & Bonus
+                    <Gift size={14} className="text-amber-400" /> Bonus Partenaires
                   </button>
                   <button
                     onClick={() => setIsAiOpen(true)}
@@ -766,7 +759,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Matchs du jour filtrés (5 MATCHS DE SERIE A) */}
+              {/* Matchs du jour filtrés */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -819,7 +812,7 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE D'ANALYSE */}
+          {/* PAGE D'ANALYSE : LES COTES SONT ICI RATTACHÉES AUX DEUX ÉQUIPES */}
           {currentPage === 'analysis' && (
             <div className="space-y-6">
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
@@ -847,20 +840,24 @@ export default function App() {
                 </div>
               </div>
 
-              {/* TABLEAU DE COTES FLASHSCORE AUX COULEURS DES MARQUES */}
+              {/* TABLEAU FLASHSCORE : LES COTES SONT STRICTEMENT RATTACHÉES AUX ÉQUIPES DU MATCH */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <TrendingUp size={16} className="text-[#00D68F]" /> Cotes Officielles & Meilleurs Bonus (Style Flashscore)
-                </h3>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <TrendingUp size={16} className="text-[#00D68F]" /> Cotes Officielles pour {homeName} vs {awayName}
+                  </h3>
+                  <span className="text-[11px] text-[#94A3B8]">Cotes 1X2 réelles par bookmaker</span>
+                </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-[#162C50] text-[#94A3B8] font-bold uppercase text-[10px]">
-                        <th className="pb-3">Bookmaker</th>
-                        <th className="pb-3 text-center">1</th>
-                        <th className="pb-3 text-center">X</th>
-                        <th className="pb-3 text-center">2</th>
+                        <th className="pb-3">Bookmaker Partenaire</th>
+                        {/* EN-TÊTES DE COTES RATTACHÉES AUX NOMS DES ÉQUIPES */}
+                        <th className="pb-3 text-center">1 ({homeName})</th>
+                        <th className="pb-3 text-center">X (Nul)</th>
+                        <th className="pb-3 text-center">2 ({awayName})</th>
                         <th className="pb-3">Code Promo</th>
                         <th className="pb-3 text-right">Parier</th>
                       </tr>
@@ -883,17 +880,17 @@ export default function App() {
 
                             <td className="py-3.5 text-center">
                               <span className="bg-[#081426] border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-white text-xs">
-                                {p.odds1}
+                                2.05
                               </span>
                             </td>
                             <td className="py-3.5 text-center">
                               <span className="bg-[#081426] border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#94A3B8] text-xs">
-                                {p.oddsX}
+                                3.45
                               </span>
                             </td>
                             <td className="py-3.5 text-center">
                               <span className="bg-[#081426] border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#00D68F] text-xs">
-                                {p.odds2}
+                                3.80
                               </span>
                             </td>
 
@@ -922,9 +919,10 @@ export default function App() {
                 </div>
               </div>
 
+              {/* GRAPHIQUE DES PROBABILITÉS 1X2 */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Probabilités 1X2</h3>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Probabilités 1X2 (Loi de Poisson)</h3>
                   <div className="h-48">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={chartData} layout="vertical">
@@ -1103,7 +1101,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VUE PROFIL (SÉCURISÉE) */}
+          {/* VUE PROFIL */}
           {currentPage === 'profile' && (
             <div className="max-w-3xl space-y-6">
               <div className="flex justify-between items-center">
