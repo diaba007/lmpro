@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
+} from 'firebase/auth';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { 
   LayoutDashboard, 
@@ -33,7 +42,9 @@ import {
   Upload,
   FolderOpen,
   ArrowLeft,
-  Key
+  Key,
+  Mail,
+  AlertCircle
 } from 'lucide-react';
 
 import { PartnersView, INITIAL_PARTNERS, getPartnerTheme } from './components/PartnersView';
@@ -165,6 +176,16 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [favoriteLeagues, setFavoriteLeagues] = useState<string[]>(['Serie A', 'Premier League', 'La Liga']);
 
+  // FORMULAIRE D'AUTHENTIFICATION PROFESSIONNEL (CONNEXION & INSCRIPTION)
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [authName, setAuthName] = useState('');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authConfirmPass, setAuthConfirmPass] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Chatbot IA
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'bot'; text: string }[]>([
     { role: 'bot', text: 'Bonjour ! Je suis votre analyste tactique LMPRO. La Serie A italienne est à l\'honneur aujourd\'hui avec Milan, l\'Inter, la Juve et Napoli !' }
@@ -197,7 +218,7 @@ export default function App() {
   const [masterPassInput, setMasterPassInput] = useState('');
   const [masterUnlocked, setMasterUnlocked] = useState(false);
 
-  // VÉRIFICATION DE SÉCURITÉ : SEUL CHRISTIAN EST ADMIN
+  // SÉCURITÉ : VÉRIFICATION DU RÔLE SUPER-ADMIN
   const userEmail = user?.email?.toLowerCase() || '';
   const userName = user?.displayName?.toLowerCase() || '';
 
@@ -210,7 +231,7 @@ export default function App() {
   const isSecondaryAdmin = !isSuperAdmin && Boolean(user) && adminTeam.some(m => m.role === 'ADMIN' && m.email.toLowerCase() === userEmail);
   const hasAdminAccess = isSuperAdmin || isSecondaryAdmin;
 
-  // GESTION PROPRE DU RETOUR (NAVIGATEUR ET SMARTPHONE)
+  // GESTION DU RETOUR NAVIGATEUR ET SMARTPHONE
   const navigateTo = (page: PageId, addToHistory = true) => {
     setCurrentPage(page);
     setMobileMenuOpen(false);
@@ -261,6 +282,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // CONNEXION RAPIDE PAR GOOGLE
   const handleGoogleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
@@ -268,6 +290,58 @@ export default function App() {
       if (err.code !== 'auth/popup-closed-by-user') {
         alert("Info connexion : " + err.message);
       }
+    }
+  };
+
+  // INSCRIPTION OU CONNEXION PAR EMAIL / MOT DE PASSE
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthLoading(true);
+
+    try {
+      if (authMode === 'REGISTER') {
+        if (authPassword !== authConfirmPass) {
+          setAuthError("Les deux mots de passe ne sont pas identiques.");
+          setAuthLoading(false);
+          return;
+        }
+        if (authPassword.length < 6) {
+          setAuthError("Le mot de passe doit comporter au moins 6 caractères.");
+          setAuthLoading(false);
+          return;
+        }
+
+        // Création du compte utilisateur dans Firebase
+        const res = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+        if (authName.trim()) {
+          await updateProfile(res.user, { displayName: authName.trim() });
+        }
+        triggerAdminAction("Compte créé avec succès ! Bienvenue sur LMPRO.");
+      } else {
+        // Connexion standard
+        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+        triggerAdminAction("Connexion réussie !");
+      }
+
+      // Réinitialisation du formulaire
+      setAuthEmail('');
+      setAuthPassword('');
+      setAuthConfirmPass('');
+      setAuthName('');
+    } catch (err: any) {
+      console.error("Erreur Firebase Auth :", err);
+      if (err.code === 'auth/email-already-in-use') {
+        setAuthError("Cette adresse email est déjà inscrite. Connectez-vous plutôt.");
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        setAuthError("Adresse email ou mot de passe incorrect.");
+      } else if (err.code === 'auth/weak-password') {
+        setAuthError("Le mot de passe est trop court (6 caractères minimum).");
+      } else {
+        setAuthError("Erreur : " + (err.message || "Impossible de finaliser l'action"));
+      }
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -510,7 +584,7 @@ export default function App() {
               </div>
             )}
             <div className="truncate text-left">
-              <p className="text-xs font-bold text-white truncate">{user ? user.displayName : 'Visiteur'}</p>
+              <p className="text-xs font-bold text-white truncate">{user ? (user.displayName || user.email) : 'Visiteur'}</p>
               <span className={`text-[10px] font-bold ${isSuperAdmin ? 'text-amber-400' : isSecondaryAdmin ? 'text-[#0066FF]' : user ? 'text-[#00D68F]' : 'text-[#94A3B8]'}`}>
                 {isSuperAdmin ? '👑 Super-Admin' : isSecondaryAdmin ? '🛡️ Admin' : user ? 'Membre' : 'Non Connecté'}
               </span>
@@ -536,7 +610,7 @@ export default function App() {
             <span><strong className="text-white">COTES PAR MATCH & BONUS :</strong> 5 rencontres de Serie A programmées</span>
           </div>
           <span className="font-mono bg-[#162C50] text-white px-2 py-0.5 rounded text-[10px] font-bold">
-            PRO V2.5
+            PRO V2.6
           </span>
         </div>
 
@@ -553,7 +627,7 @@ export default function App() {
             </button>
           )}
 
-          {/* VUE : BONUS & PARTENAIRES (100% SANS COTES : ÉPURÉE ET FOCALISÉE BONUS) */}
+          {/* VUE : BONUS & PARTENAIRES */}
           {currentPage === 'partners' && (
             <PartnersView 
               partners={partners} 
@@ -812,7 +886,7 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE D'ANALYSE : LES COTES SONT ICI RATTACHÉES AUX DEUX ÉQUIPES */}
+          {/* PAGE D'ANALYSE */}
           {currentPage === 'analysis' && (
             <div className="space-y-6">
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
@@ -840,7 +914,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* TABLEAU FLASHSCORE : LES COTES SONT STRICTEMENT RATTACHÉES AUX ÉQUIPES DU MATCH */}
+              {/* TABLEAU DE COTES FLASHSCORE RATTACHÉ AUX ÉQUIPES */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -854,7 +928,6 @@ export default function App() {
                     <thead>
                       <tr className="border-b border-[#162C50] text-[#94A3B8] font-bold uppercase text-[10px]">
                         <th className="pb-3">Bookmaker Partenaire</th>
-                        {/* EN-TÊTES DE COTES RATTACHÉES AUX NOMS DES ÉQUIPES */}
                         <th className="pb-3 text-center">1 ({homeName})</th>
                         <th className="pb-3 text-center">X (Nul)</th>
                         <th className="pb-3 text-center">2 ({awayName})</th>
@@ -919,10 +992,9 @@ export default function App() {
                 </div>
               </div>
 
-              {/* GRAPHIQUE DES PROBABILITÉS 1X2 */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Probabilités 1X2 (Loi de Poisson)</h3>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Probabilités 1X2</h3>
                   <div className="h-48">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={chartData} layout="vertical">
@@ -1101,49 +1173,181 @@ export default function App() {
             </div>
           )}
 
-          {/* VUE PROFIL */}
+          {/* VUE PROFIL : VRAI SYSTÈME D'INSCRIPTION & DE CONNEXION */}
           {currentPage === 'profile' && (
-            <div className="max-w-3xl space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h1 className="text-2xl font-bold text-white">Mon Compte LMPRO</h1>
-                  <p className="text-xs text-[#94A3B8]">Gérez votre session utilisateur et vos préférences.</p>
-                </div>
-                {!user ? (
+            <div className="max-w-2xl mx-auto space-y-6">
+              
+              {!user ? (
+                // FORMULAIRE PROFESSIONNEL (INSCRIPTION OU CONNEXION)
+                <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl">
+                  
+                  {/* Onglets : Se Connecter / Créer un Compte */}
+                  <div className="flex bg-[#081426] p-1 rounded-xl border border-[#162C50]">
+                    <button
+                      onClick={() => { setAuthMode('LOGIN'); setAuthError(null); }}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                        authMode === 'LOGIN' ? 'bg-[#0066FF] text-white shadow-md' : 'text-[#94A3B8] hover:text-white'
+                      }`}
+                    >
+                      Se Connecter
+                    </button>
+                    <button
+                      onClick={() => { setAuthMode('REGISTER'); setAuthError(null); }}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                        authMode === 'REGISTER' ? 'bg-[#0066FF] text-white shadow-md' : 'text-[#94A3B8] hover:text-white'
+                      }`}
+                    >
+                      Créer un Compte (Inscription)
+                    </button>
+                  </div>
+
+                  <div>
+                    <h2 className="text-xl font-black text-white">
+                      {authMode === 'LOGIN' ? 'Bon retour sur LMPRO' : 'Rejoindre la communauté LMPRO'}
+                    </h2>
+                    <p className="text-xs text-[#94A3B8] mt-1">
+                      {authMode === 'LOGIN' 
+                        ? 'Connectez-vous pour retrouver vos favoris et accéder à vos analyses.' 
+                        : 'Créez votre compte gratuit en 30 secondes pour sauvegarder vos pronostics.'}
+                    </p>
+                  </div>
+
+                  {/* Message d'erreur en cas de problème */}
+                  {authError && (
+                    <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
+                      <AlertCircle size={16} className="shrink-0" />
+                      <span>{authError}</span>
+                    </div>
+                  )}
+
+                  {/* Formulaire complet */}
+                  <form onSubmit={handleEmailAuth} className="space-y-4">
+                    {authMode === 'REGISTER' && (
+                      <div>
+                        <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Nom Complet :</label>
+                        <div className="relative">
+                          <User size={16} className="absolute left-3.5 top-3 text-[#94A3B8]" />
+                          <input
+                            type="text"
+                            required
+                            value={authName}
+                            onChange={(e) => setAuthName(e.target.value)}
+                            placeholder="Ex: Christian Diabagate"
+                            className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Adresse Email :</label>
+                      <div className="relative">
+                        <Mail size={16} className="absolute left-3.5 top-3 text-[#94A3B8]" />
+                        <input
+                          type="email"
+                          required
+                          value={authEmail}
+                          onChange={(e) => setAuthEmail(e.target.value)}
+                          placeholder="votre-email@exemple.com"
+                          className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Mot de passe :</label>
+                      <div className="relative">
+                        <Lock size={16} className="absolute left-3.5 top-3 text-[#94A3B8]" />
+                        <input
+                          type="password"
+                          required
+                          value={authPassword}
+                          onChange={(e) => setAuthPassword(e.target.value)}
+                          placeholder="Minimum 6 caractères"
+                          className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
+                        />
+                      </div>
+                    </div>
+
+                    {authMode === 'REGISTER' && (
+                      <div>
+                        <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Confirmer le mot de passe :</label>
+                        <div className="relative">
+                          <Lock size={16} className="absolute left-3.5 top-3 text-[#94A3B8]" />
+                          <input
+                            type="password"
+                            required
+                            value={authConfirmPass}
+                            onChange={(e) => setAuthConfirmPass(e.target.value)}
+                            placeholder="Répétez votre mot de passe"
+                            className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={authLoading}
+                      className="w-full py-3 bg-[#0066FF] hover:bg-[#0052CC] disabled:opacity-50 text-white rounded-xl font-bold text-xs shadow-lg shadow-[#0066FF]/25 transition-all mt-2"
+                    >
+                      {authLoading ? 'Traitement en cours...' : authMode === 'LOGIN' ? 'Se Connecter' : 'Créer mon Compte Gratuit'}
+                    </button>
+                  </form>
+
+                  {/* Séparateur OU */}
+                  <div className="relative flex items-center justify-center my-4">
+                    <div className="border-t border-[#162C50] w-full" />
+                    <span className="bg-[#0D1E38] px-3 text-[10px] text-[#94A3B8] uppercase font-bold tracking-wider">OU</span>
+                    <div className="border-t border-[#162C50] w-full" />
+                  </div>
+
+                  {/* Bouton rapide Google */}
                   <button
                     onClick={handleGoogleLogin}
-                    className="flex items-center gap-2 bg-[#0066FF] hover:bg-[#0052CC] text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-[#0066FF]/20 transition-all"
+                    className="w-full bg-[#081426] hover:bg-[#162C50] text-white border border-[#162C50] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
                   >
-                    <LogIn size={16} /> Connexion Google
+                    <LogIn size={16} className="text-[#00D68F]" />
+                    <span>Continuer avec Google</span>
                   </button>
-                ) : (
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 bg-[#0D1E38] hover:bg-rose-500/20 text-rose-400 border border-[#162C50] px-4 py-2.5 rounded-xl font-bold text-xs transition-all"
-                  >
-                    <LogOut size={16} /> Déconnexion
-                  </button>
-                )}
-              </div>
-
-              <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 flex items-center gap-5">
-                {user?.photoURL ? (
-                  <img src={user.photoURL} alt="" className="w-16 h-16 rounded-full border-2 border-[#0066FF]" />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-[#162C50] border-2 border-[#0066FF] flex items-center justify-center text-white">
-                    <User size={30} />
-                  </div>
-                )}
-                <div>
-                  <h3 className="text-base font-bold text-white">{user ? user.displayName : 'Visiteur (Non Connecté)'}</h3>
-                  <p className="text-xs text-[#94A3B8]">{user ? user.email : 'Connectez-vous pour enregistrer vos favoris'}</p>
-                  <span className={`mt-2 inline-block px-2.5 py-0.5 text-[10px] font-bold rounded ${
-                    isSuperAdmin ? 'bg-amber-400/20 text-amber-400' : isSecondaryAdmin ? 'bg-[#0066FF]/20 text-[#0066FF]' : user ? 'bg-[#00D68F]/20 text-[#00D68F]' : 'bg-[#162C50] text-[#94A3B8]'
-                  }`}>
-                    {isSuperAdmin ? '👑 Super-Administrateur' : isSecondaryAdmin ? '🛡️ Administrateur' : user ? '✓ Membre' : 'Invité'}
-                  </span>
                 </div>
-              </div>
+              ) : (
+                // PROFIL UTILISATEUR CONNECTÉ
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h1 className="text-2xl font-bold text-white">Mon Profil LMPRO</h1>
+                      <p className="text-xs text-[#94A3B8]">Session active et sécurisée.</p>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 bg-[#0D1E38] hover:bg-rose-500/20 text-rose-400 border border-[#162C50] px-4 py-2 rounded-xl font-bold text-xs transition-all"
+                    >
+                      <LogOut size={16} /> Déconnexion
+                    </button>
+                  </div>
+
+                  <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 flex items-center gap-5">
+                    {user?.photoURL ? (
+                      <img src={user.photoURL} alt="" className="w-16 h-16 rounded-full border-2 border-[#0066FF]" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-[#162C50] border-2 border-[#0066FF] flex items-center justify-center text-white font-bold text-xl">
+                        {(user.displayName || user.email || 'U').substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-base font-bold text-white">{user.displayName || 'Utilisateur LMPRO'}</h3>
+                      <p className="text-xs text-[#94A3B8]">{user.email}</p>
+                      <span className={`mt-2 inline-block px-2.5 py-0.5 text-[10px] font-bold rounded ${
+                        isSuperAdmin ? 'bg-amber-400/20 text-amber-400' : isSecondaryAdmin ? 'bg-[#0066FF]/20 text-[#0066FF]' : 'bg-[#00D68F]/20 text-[#00D68F]'
+                      }`}>
+                        {isSuperAdmin ? '👑 Super-Administrateur' : isSecondaryAdmin ? '🛡️ Administrateur' : '✓ Membre Inscrit'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
 
