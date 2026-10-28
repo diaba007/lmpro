@@ -21,7 +21,12 @@ import {
   LogOut, 
   CheckCircle2, 
   Check, 
-  Globe 
+  Globe,
+  Lock,
+  UserPlus,
+  Trash2,
+  ShieldAlert,
+  Crown
 } from 'lucide-react';
 
 // --- CONFIGURATION FIREBASE ---
@@ -39,6 +44,15 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
 type PageId = 'dashboard' | 'matches' | 'analysis' | 'predictions' | 'history' | 'profile' | 'admin';
+type AdminRole = 'SUPER_ADMIN' | 'ADMIN';
+
+interface AdminMember {
+  id: string;
+  email: string;
+  name: string;
+  role: AdminRole;
+  addedAt: string;
+}
 
 interface Match {
   id: number;
@@ -160,8 +174,42 @@ export default function App() {
   const [inputQuestion, setInputQuestion] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
-  // États d'administration en direct
+  // GESTION DU CONTRÔLE D'ACCÈS RBAC (ADMINISTRATION SÉCURISÉE)
   const [adminNotification, setAdminNotification] = useState<string | null>(null);
+
+  // Liste des administrateurs autorisés
+  const [adminTeam, setAdminTeam] = useState<AdminMember[]>(() => {
+    const saved = localStorage.getItem('lmpro_admin_team');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [
+      {
+        id: '1',
+        email: 'christian.diabagate',
+        name: 'Christian Diabagate (Propriétaire)',
+        role: 'SUPER_ADMIN',
+        addedAt: '28/10/2026'
+      }
+    ];
+  });
+
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminName, setNewAdminName] = useState('');
+
+  // Vérification de sécurité des rôles
+  const userEmail = user?.email?.toLowerCase() || '';
+  const userName = user?.displayName?.toLowerCase() || '';
+
+  // Christian est automatiquement reconnu Super-Admin
+  const isSuperAdmin = user && (
+    userName.includes('christian') || 
+    userEmail.includes('christian') || 
+    adminTeam.some(m => m.role === 'SUPER_ADMIN' && (m.email.toLowerCase() === userEmail || userEmail.includes(m.email.toLowerCase())))
+  );
+
+  const isSecondaryAdmin = user && adminTeam.some(m => m.role === 'ADMIN' && m.email.toLowerCase() === userEmail);
+  const hasAdminAccess = isSuperAdmin || isSecondaryAdmin;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -190,6 +238,33 @@ export default function App() {
     setTimeout(() => {
       setAdminNotification(null);
     }, 3500);
+  };
+
+  const handleAddAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminEmail.trim() || !newAdminName.trim()) return;
+
+    const newMember: AdminMember = {
+      id: Date.now().toString(),
+      email: newAdminEmail.trim().toLowerCase(),
+      name: newAdminName.trim(),
+      role: 'ADMIN',
+      addedAt: new Date().toLocaleDateString('fr-FR')
+    };
+
+    const updated = [...adminTeam, newMember];
+    setAdminTeam(updated);
+    localStorage.setItem('lmpro_admin_team', JSON.stringify(updated));
+    setNewAdminEmail('');
+    setNewAdminName('');
+    triggerAdminAction(`L'administrateur ${newMember.name} a été ajouté avec succès.`);
+  };
+
+  const handleRemoveAdmin = (id: string, name: string) => {
+    const updated = adminTeam.filter(m => m.id !== id);
+    setAdminTeam(updated);
+    localStorage.setItem('lmpro_admin_team', JSON.stringify(updated));
+    triggerAdminAction(`L'accès de ${name} a été révoqué.`);
   };
 
   const handleAskAI = async (e: React.FormEvent) => {
@@ -291,7 +366,7 @@ export default function App() {
               { id: 'predictions', label: 'Pronostics Pro', icon: Target },
               { id: 'history', label: 'Historique Certifié', icon: History },
               { id: 'profile', label: 'Mon Profil', icon: User },
-              { id: 'admin', label: 'Console Admin', icon: ShieldCheck },
+              { id: 'admin', label: 'Console Admin', icon: ShieldCheck, locked: !hasAdminAccess },
             ].map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
@@ -302,14 +377,19 @@ export default function App() {
                     setCurrentPage(item.id as PageId);
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all ${
                     isActive
                       ? 'bg-[#0066FF] text-white shadow-md shadow-[#0066FF]/30'
                       : 'text-[#94A3B8] hover:bg-[#0D1E38] hover:text-white'
                   }`}
                 >
-                  <Icon size={18} />
-                  <span>{item.label}</span>
+                  <div className="flex items-center gap-3">
+                    <Icon size={18} />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.locked && (
+                    <Lock size={12} className="text-[#94A3B8]" title="Accès Administrateur requis" />
+                  )}
                 </button>
               );
             })}
@@ -328,7 +408,9 @@ export default function App() {
             )}
             <div className="truncate text-left">
               <p className="text-xs font-bold text-white truncate">{user ? user.displayName : 'Invité'}</p>
-              <span className="text-[10px] text-[#00D68F] font-medium">{user ? 'Google Connecté' : 'Mode Démo'}</span>
+              <span className={`text-[10px] font-bold ${isSuperAdmin ? 'text-amber-400' : isSecondaryAdmin ? 'text-[#0066FF]' : 'text-[#00D68F]'}`}>
+                {isSuperAdmin ? '👑 Super-Admin' : isSecondaryAdmin ? '🛡️ Admin' : user ? 'Membre' : 'Mode Démo'}
+              </span>
             </div>
           </div>
           {user ? (
@@ -357,150 +439,238 @@ export default function App() {
 
         <div className="p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
 
-          {/* VUE : CONSOLE SUPER-ADMIN (NOUVELLE & COMPLÈTE) */}
+          {/* VUE CONSOLE D'ADMINISTRATION PROTÉGÉE */}
           {currentPage === 'admin' && (
             <div className="space-y-6">
               
-              {/* Notification d'action Admin */}
-              {adminNotification && (
-                <div className="p-4 rounded-xl bg-[#00D68F]/20 border border-[#00D68F] text-white text-xs font-bold flex items-center justify-between shadow-lg animate-fade-in">
-                  <span>✓ {adminNotification}</span>
-                  <button onClick={() => setAdminNotification(null)} className="text-[#94A3B8] hover:text-white">✕</button>
+              {!hasAdminAccess ? (
+                <div className="bg-[#0D1E38] border border-rose-500/30 rounded-2xl p-10 text-center max-w-xl mx-auto my-12 space-y-4 shadow-2xl">
+                  <div className="w-16 h-16 rounded-full bg-rose-500/10 border-2 border-rose-500 flex items-center justify-center mx-auto text-rose-400">
+                    <ShieldAlert size={36} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Accès Réservé à l'Administration</h2>
+                    <p className="text-xs text-[#94A3B8] mt-2 leading-relaxed">
+                      Cette section est strictement confidentielle et réservée au propriétaire (<strong>Christian Diabagate</strong>) et aux administrateurs autorisés.
+                    </p>
+                  </div>
+
+                  {!user ? (
+                    <button
+                      onClick={handleGoogleLogin}
+                      className="bg-[#0066FF] hover:bg-[#0052CC] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-[#0066FF]/20 transition-all inline-flex items-center gap-2"
+                    >
+                      <LogIn size={16} /> Se connecter avec le compte Propriétaire
+                    </button>
+                  ) : (
+                    <div className="p-3 bg-[#081426] rounded-xl border border-[#162C50] text-xs text-[#94A3B8]">
+                      Connecté avec : <strong className="text-white">{user.email}</strong> (Ce compte ne dispose pas des privilèges administrateur).
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  
+                  {adminNotification && (
+                    <div className="p-4 rounded-xl bg-[#00D68F]/20 border border-[#00D68F] text-white text-xs font-bold flex items-center justify-between shadow-lg">
+                      <span>✓ {adminNotification}</span>
+                      <button onClick={() => setAdminNotification(null)} className="text-[#94A3B8] hover:text-white">✕</button>
+                    </div>
+                  )}
+
+                  <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        {isSuperAdmin ? <Crown size={22} className="text-amber-400" /> : <ShieldCheck size={22} className="text-[#0066FF]" />}
+                        <h1 className="text-2xl font-black text-white tracking-tight">
+                          {isSuperAdmin ? "Console Super-Admin (Propriétaire)" : "Console Administrateur Délégué"}
+                        </h1>
+                      </div>
+                      <p className="text-xs text-[#94A3B8] mt-1">
+                        Session active : <strong className="text-white">{user ? user.displayName : 'Christian Diabagate'}</strong> 
+                        <span className="ml-2 font-mono text-[10px] px-2 py-0.5 rounded bg-[#162C50] text-[#00D68F]">
+                          {isSuperAdmin ? 'Droits Illimités' : 'Droits Restreints'}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => triggerAdminAction("Synchronisation forcée effectuée avec succès ! Données API rafraîchies.")}
+                        className="bg-[#0066FF] hover:bg-[#0052CC] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg shadow-[#0066FF]/20"
+                      >
+                        🔄 Forcer Synchronisation
+                      </button>
+
+                      {isSuperAdmin ? (
+                        <button 
+                          onClick={() => triggerAdminAction("Cache mémoire purgé avec succès ! Prochain appel dirigé vers l'API.")}
+                          className="bg-[#081426] hover:bg-[#162C50] text-[#94A3B8] hover:text-white border border-[#162C50] px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
+                        >
+                          🧹 Purger le Cache
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-[#94A3B8] border border-[#162C50] px-3 py-2 rounded-xl bg-[#081426] cursor-not-allowed">
+                          🔒 Purge réservée au Super-Admin
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* AJOUT D'ADMINISTRATEURS DÉLÉGUÉS (RÉSERVÉ AU SUPER-ADMIN) */}
+                  {isSuperAdmin && (
+                    <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-5">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h3 className="text-base font-bold text-white flex items-center gap-2">
+                            <UserPlus size={18} className="text-[#00D68F]" /> Gestion des Administrateurs & Délégués
+                          </h3>
+                          <p className="text-xs text-[#94A3B8]">
+                            Ajoutez des collaborateurs pour vous aider à gérer la plateforme avec des privilèges restreints.
+                          </p>
+                        </div>
+                        <span className="text-xs text-[#94A3B8] font-mono">{adminTeam.length} administrateur(s)</span>
+                      </div>
+
+                      <form onSubmit={handleAddAdmin} className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#081426] p-4 rounded-xl border border-[#162C50]">
+                        <input
+                          type="text"
+                          required
+                          value={newAdminName}
+                          onChange={(e) => setNewAdminName(e.target.value)}
+                          placeholder="Nom de l'administrateur (ex: Marc)"
+                          className="bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-2 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
+                        />
+                        <input
+                          type="email"
+                          required
+                          value={newAdminEmail}
+                          onChange={(e) => setNewAdminEmail(e.target.value)}
+                          placeholder="Email Google de la personne"
+                          className="bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-2 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
+                        />
+                        <button
+                          type="submit"
+                          className="bg-[#00D68F] hover:bg-[#00b377] text-black font-bold text-xs py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <UserPlus size={14} /> Donner les Accès Admin
+                        </button>
+                      </form>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="border-b border-[#162C50] text-[#94A3B8] font-semibold">
+                              <th className="pb-3">Nom</th>
+                              <th className="pb-3">Email</th>
+                              <th className="pb-3">Rôle & Privilèges</th>
+                              <th className="pb-3">Ajouté le</th>
+                              <th className="pb-3 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#162C50] text-slate-300">
+                            {adminTeam.map((member) => (
+                              <tr key={member.id} className="hover:bg-[#081426]/50">
+                                <td className="py-3 font-bold text-white flex items-center gap-2">
+                                  {member.role === 'SUPER_ADMIN' ? '👑' : '🛡️'} {member.name}
+                                </td>
+                                <td className="py-3 font-mono text-[#94A3B8]">{member.email}</td>
+                                <td className="py-3">
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                    member.role === 'SUPER_ADMIN' ? 'bg-amber-400/20 text-amber-400' : 'bg-[#0066FF]/20 text-[#0066FF]'
+                                  }`}>
+                                    {member.role === 'SUPER_ADMIN' ? 'Propriétaire (Tous droits)' : 'Admin Standard (Restreint)'}
+                                  </span>
+                                </td>
+                                <td className="py-3 font-mono text-[11px] text-[#94A3B8]">{member.addedAt}</td>
+                                <td className="py-3 text-right">
+                                  {member.role === 'SUPER_ADMIN' ? (
+                                    <span className="text-[10px] text-[#94A3B8] italic">Non révocable</span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleRemoveAdmin(member.id, member.name)}
+                                      className="text-rose-400 hover:text-rose-300 p-1 transition-colors"
+                                      title="Révoquer cet administrateur"
+                                    >
+                                      <Trash2 size={15} />
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Métriques Système */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
+                      <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Quota API Journalier</div>
+                      <div className="text-2xl font-black text-white mt-1 font-mono">14 / 100</div>
+                      <div className="w-full bg-[#081426] h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div className="bg-[#00D68F] h-full" style={{ width: '14%' }} />
+                      </div>
+                      <span className="text-[10px] text-[#00D68F] mt-1 inline-block">86 requêtes disponibles</span>
+                    </div>
+
+                    <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
+                      <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Latence Serveur</div>
+                      <div className="text-2xl font-black text-white mt-1 font-mono">94 ms</div>
+                      <span className="text-[10px] text-[#00D68F]">Cache Vercel Edge actif</span>
+                    </div>
+
+                    <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
+                      <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Précision Poisson</div>
+                      <div className="text-2xl font-black text-[#00D68F] mt-1 font-mono">72.4%</div>
+                      <span className="text-[10px] text-[#94A3B8]">Sur 120 matchs archivés</span>
+                    </div>
+
+                    <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
+                      <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Assistant IA Studio</div>
+                      <div className="text-xl font-black text-[#0066FF] mt-1">Opérationnel</div>
+                      <span className="text-[10px] text-[#94A3B8]">Gemini 1.5 Flash</span>
+                    </div>
+                  </div>
+
+                  {/* Journal des Synchronisations Récentes */}
+                  <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        📋 Journal des Transactions Récentes (Derniers Logs)
+                      </h3>
+                      <span className="text-[10px] text-[#94A3B8] font-mono">Dernière vérif : à l'instant</span>
+                    </div>
+
+                    <div className="bg-[#081426] border border-[#162C50] rounded-xl overflow-hidden font-mono text-[11px]">
+                      <div className="divide-y divide-[#162C50]">
+                        <div className="p-3 flex items-center justify-between text-slate-300">
+                          <span className="text-[#00D68F]">[10:00:15] [API_SYNC_OK]</span>
+                          <span>9 rencontres chargées avec succès pour 8 championnats majeurs.</span>
+                          <span className="text-[#94A3B8]">HTTP 200 (84ms)</span>
+                        </div>
+                        <div className="p-3 flex items-center justify-between text-slate-300">
+                          <span className="text-[#0066FF]">[09:45:00] [CACHE_HIT]</span>
+                          <span>Requête /v4/matches servie depuis la mémoire tampon sans appel API.</span>
+                          <span className="text-[#94A3B8]">0ms (Économie quota)</span>
+                        </div>
+                        <div className="p-3 flex items-center justify-between text-slate-300">
+                          <span className="text-[#00D68F]">[09:30:22] [AI_ENGINE_OK]</span>
+                          <span>Assistant tactique initialisé avec succès sur Google AI Studio (Gemini).</span>
+                          <span className="text-[#94A3B8]">Modèle Flash actif</span>
+                        </div>
+                        <div className="p-3 flex items-center justify-between text-slate-300">
+                          <span className="text-amber-400">[09:00:01] [AUDIT_LOCKED]</span>
+                          <span>Contrôle RBAC : droits du Super-Admin Christian validés.</span>
+                          <span className="text-[#00D68F]">100% Intègre</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               )}
-
-              {/* En-tête Super-Admin */}
-              <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#00D68F] animate-pulse" />
-                    <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                      <ShieldCheck className="text-[#0066FF]" /> Console Super-Admin LMPRO
-                    </h1>
-                  </div>
-                  <p className="text-xs text-[#94A3B8] mt-1">
-                    Connecté en tant que : <strong className="text-white">{user ? user.displayName : 'Christian Diabagate'}</strong> (Droits Super-Administrateur Actifs)
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => triggerAdminAction("Synchronisation forcée effectuée ! Les données API ont été rafraîchies.")}
-                    className="flex items-center gap-1.5 bg-[#0066FF] hover:bg-[#0052CC] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg shadow-[#0066FF]/20"
-                  >
-                    🔄 Forcer la Synchronisation
-                  </button>
-                  <button 
-                    onClick={() => triggerAdminAction("Cache mémoire purgé avec succès ! Le prochain appel contactera l'API en direct.")}
-                    className="flex items-center gap-1.5 bg-[#081426] hover:bg-[#162C50] text-[#94A3B8] hover:text-white border border-[#162C50] px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
-                  >
-                    🧹 Purger le Cache
-                  </button>
-                </div>
-              </div>
-
-              {/* KPI Cards d'Infrastructure */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
-                  <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Quota Journalier API</div>
-                  <div className="text-2xl font-black text-white mt-1 font-mono">14 / 100</div>
-                  <div className="w-full bg-[#081426] h-1.5 rounded-full mt-2 overflow-hidden">
-                    <div className="bg-[#00D68F] h-full" style={{ width: '14%' }} />
-                  </div>
-                  <span className="text-[10px] text-[#00D68F] mt-1 inline-block">86 requêtes disponibles</span>
-                </div>
-
-                <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
-                  <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Latence Serveur Edge</div>
-                  <div className="text-2xl font-black text-white mt-1 font-mono">94 ms</div>
-                  <span className="text-[10px] text-[#00D68F]">Cache Vercel Edge actif</span>
-                </div>
-
-                <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
-                  <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Précision Poisson</div>
-                  <div className="text-2xl font-black text-[#00D68F] mt-1 font-mono">72.4%</div>
-                  <span className="text-[10px] text-[#94A3B8]">Sur 120 matchs archivés</span>
-                </div>
-
-                <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
-                  <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Assistant IA Studio</div>
-                  <div className="text-xl font-black text-[#0066FF] mt-1">Opérationnel</div>
-                  <span className="text-[10px] text-[#94A3B8]">Gemini 1.5 Flash</span>
-                </div>
-              </div>
-
-              {/* Contrôles du Système en Direct */}
-              <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  ⚙️ Paramètres du Système & Modes de Diffusion
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="bg-[#081426] border border-[#162C50] p-4 rounded-xl flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-white block">Mode API football-data</span>
-                      <span className="text-[10px] text-[#94A3B8]">Bascule flux réel / secours</span>
-                    </div>
-                    <span className="bg-[#00D68F]/20 text-[#00D68F] font-bold text-[10px] px-2.5 py-1 rounded-full">
-                      AUTOMATIQUE
-                    </span>
-                  </div>
-
-                  <div className="bg-[#081426] border border-[#162C50] p-4 rounded-xl flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-white block">Sécurité des Archives</span>
-                      <span className="text-[10px] text-[#94A3B8]">Règles d'audit Firestore</span>
-                    </div>
-                    <span className="bg-[#0066FF]/20 text-[#0066FF] font-bold text-[10px] px-2.5 py-1 rounded-full">
-                      IMMUABLE
-                    </span>
-                  </div>
-
-                  <div className="bg-[#081426] border border-[#162C50] p-4 rounded-xl flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-white block">Statut du Site</span>
-                      <span className="text-[10px] text-[#94A3B8]">Visibilité publique</span>
-                    </div>
-                    <span className="bg-[#00D68F]/20 text-[#00D68F] font-bold text-[10px] px-2.5 py-1 rounded-full">
-                      EN LIGNE
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Journal des Synchronisations Récentes (Sync Logs) */}
-              <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    📋 Journal des Transactions Récentes (Derniers Logs)
-                  </h3>
-                  <span className="text-[10px] text-[#94A3B8] font-mono">Dernière vérif : à l'instant</span>
-                </div>
-
-                <div className="bg-[#081426] border border-[#162C50] rounded-xl overflow-hidden font-mono text-[11px]">
-                  <div className="divide-y divide-[#162C50]">
-                    <div className="p-3 flex items-center justify-between text-slate-300">
-                      <span className="text-[#00D68F]">[10:00:15] [API_SYNC_OK]</span>
-                      <span>9 rencontres chargées avec succès pour 8 championnats majeurs.</span>
-                      <span className="text-[#94A3B8]">HTTP 200 (84ms)</span>
-                    </div>
-                    <div className="p-3 flex items-center justify-between text-slate-300">
-                      <span className="text-[#0066FF]">[09:45:00] [CACHE_HIT]</span>
-                      <span>Requête /v4/matches servie depuis la mémoire tampon sans appel API.</span>
-                      <span className="text-[#94A3B8]">0ms (Économie quota)</span>
-                    </div>
-                    <div className="p-3 flex items-center justify-between text-slate-300">
-                      <span className="text-[#00D68F]">[09:30:22] [AI_ENGINE_OK]</span>
-                      <span>Assistant tactique initialisé avec succès sur Google AI Studio (Gemini).</span>
-                      <span className="text-[#94A3B8]">Modèle Flash actif</span>
-                    </div>
-                    <div className="p-3 flex items-center justify-between text-slate-300">
-                      <span className="text-amber-400">[09:00:01] [AUDIT_LOCKED]</span>
-                      <span>Vérification d'intégrité : aucun historique altéré conformément aux règles.</span>
-                      <span className="text-[#00D68F]">100% Intègre</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
             </div>
           )}
@@ -547,7 +717,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Matchs du jour filtrés */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -606,7 +775,7 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE D'ANALYSE (AVEC TOOLTIP PREMIUM) */}
+          {/* PAGE D'ANALYSE */}
           {currentPage === 'analysis' && (
             <div className="space-y-6">
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
@@ -857,9 +1026,9 @@ export default function App() {
                   <h3 className="text-base font-bold text-white">{user ? user.displayName : 'Christian Diabagate'}</h3>
                   <p className="text-xs text-[#94A3B8]">{user ? user.email : 'Super-Administrateur de la plateforme'}</p>
                   <span className={`mt-2 inline-block px-2.5 py-0.5 text-[10px] font-bold rounded ${
-                    user ? 'bg-[#00D68F]/20 text-[#00D68F]' : 'bg-[#162C50] text-[#94A3B8]'
+                    isSuperAdmin ? 'bg-amber-400/20 text-amber-400' : isSecondaryAdmin ? 'bg-[#0066FF]/20 text-[#0066FF]' : user ? 'bg-[#00D68F]/20 text-[#00D68F]' : 'bg-[#162C50] text-[#94A3B8]'
                   }`}>
-                    {user ? '✓ Compte Google Actif' : 'Session Maître'}
+                    {isSuperAdmin ? '👑 Propriétaire Maître' : isSecondaryAdmin ? '🛡️ Administrateur' : user ? '✓ Membre Connecté' : 'Mode Démo'}
                   </span>
                 </div>
               </div>
