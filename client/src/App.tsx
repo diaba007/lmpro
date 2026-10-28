@@ -21,17 +21,18 @@ import {
   LogOut, 
   CheckCircle2, 
   Check, 
-  Globe,
-  Lock,
-  UserPlus,
-  Trash2,
-  ShieldAlert,
-  Crown,
-  Gift,
-  Copy,
-  ExternalLink,
-  Flame,
-  Settings
+  Globe, 
+  Lock, 
+  UserPlus, 
+  Trash2, 
+  ShieldAlert, 
+  Crown, 
+  Gift, 
+  Copy, 
+  ExternalLink, 
+  Flame, 
+  Settings,
+  TrendingUp
 } from 'lucide-react';
 
 // --- CONFIGURATION FIREBASE ---
@@ -62,9 +63,13 @@ interface AdminMember {
 interface PartnerBookmaker {
   id: string;
   name: string;
+  logoUrl: string;
   bonus: string;
   promoCode: string;
   url: string;
+  odds1: string;
+  oddsX: string;
+  odds2: string;
   color: string;
   badge: string;
 }
@@ -174,14 +179,10 @@ export default function App() {
   const [selectedLeagueFilter, setSelectedLeagueFilter] = useState<string>('ALL');
   const [selectedMatch, setSelectedMatch] = useState<Match>(ALL_LEAGUES_MATCHES[0]);
 
-  // Filtres marchés Pronostics Pro
   const [activeMarket, setActiveMarket] = useState<'ALL' | '1X2' | 'GOALS' | 'BTTS'>('ALL');
-
-  // Utilisateur Firebase
   const [user, setUser] = useState<any>(null);
   const [favoriteLeagues, setFavoriteLeagues] = useState<string[]>(['Premier League', 'La Liga', 'Ligue 1']);
 
-  // Chatbot IA
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'bot'; text: string }[]>([
     { role: 'bot', text: 'Bonjour ! Je suis votre analyste tactique LMPRO. Posez-moi une question sur le match sélectionné !' }
@@ -189,10 +190,9 @@ export default function App() {
   const [inputQuestion, setInputQuestion] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
-  // État de copie des codes promos
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
-  // PARTENAIRES DE PARIS SPORTIFS (MODIFIABLES DANS L'ADMIN)
+  // LISTE DES PARTENAIRES AVEC COTES ET LOGOS LOCAUX
   const [partners, setPartners] = useState<PartnerBookmaker[]>(() => {
     const saved = localStorage.getItem('lmpro_partners');
     if (saved) {
@@ -202,43 +202,58 @@ export default function App() {
       {
         id: 'melbet',
         name: 'Melbet',
-        bonus: '+200% jusqu\'à 130 000 FCFA sur 1er dépôt',
+        logoUrl: '/partners/melbet.png',
+        bonus: '+200% jusqu\'à 130 000 FCFA',
         promoCode: 'LMPRO',
         url: 'https://melbet.com',
-        color: 'from-amber-500 to-yellow-600',
+        odds1: '2.05',
+        oddsX: '3.45',
+        odds2: '3.80',
+        color: 'bg-amber-500 text-black',
         badge: 'TOP BONUS AFRIQUE'
       },
       {
         id: 'betwinner',
         name: 'Betwinner',
-        bonus: '+100% de bonus exclusif de bienvenue',
+        logoUrl: '/partners/betwinner.png',
+        bonus: '+100% de bonus exclusif',
         promoCode: 'LMPRO',
         url: 'https://betwinner.com',
-        color: 'from-emerald-600 to-teal-700',
+        odds1: '2.08',
+        oddsX: '3.40',
+        odds2: '3.75',
+        color: 'bg-emerald-600 text-white',
         badge: 'RECOMMANDÉ'
       },
       {
         id: 'goldparis',
         name: 'Goldparis',
-        bonus: 'Paris Gratuits & Bonus VIP hebdomadaire',
+        logoUrl: '/partners/goldparis.png',
+        bonus: 'Pari Gratuit de Bienvenue',
         promoCode: 'LMPRO',
         url: 'https://goldparis.com',
-        color: 'from-yellow-500 to-amber-700',
+        odds1: '2.02',
+        oddsX: '3.50',
+        odds2: '3.90',
+        color: 'bg-yellow-500 text-black',
         badge: 'EXCLUSIF CI'
       },
       {
         id: 'betclic',
         name: 'Betclic',
-        bonus: '1er pari remboursé jusqu\'à 100€ / équivalent',
+        logoUrl: '/partners/betclic.png',
+        bonus: '1er pari remboursé jusqu\'à 100€',
         promoCode: 'LMPRO',
         url: 'https://betclic.com',
-        color: 'from-rose-600 to-red-700',
-        badge: 'INTERNATIONAL'
+        odds1: '2.00',
+        oddsX: '3.35',
+        odds2: '3.70',
+        color: 'bg-rose-600 text-white',
+        badge: 'OFFICIEL'
       }
     ];
   });
 
-  // GESTION DU CONTRÔLE D'ACCÈS RBAC (ADMINISTRATION SÉCURISÉE)
   const [adminNotification, setAdminNotification] = useState<string | null>(null);
 
   const [adminTeam, setAdminTeam] = useState<AdminMember[]>(() => {
@@ -260,7 +275,6 @@ export default function App() {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
 
-  // Vérification de sécurité des rôles
   const userEmail = user?.email?.toLowerCase() || '';
   const userName = user?.displayName?.toLowerCase() || '';
 
@@ -302,7 +316,6 @@ export default function App() {
     }, 3500);
   };
 
-  // Copier le code promo avec retour visuel
   const handleCopyCode = (id: string, code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCodeId(id);
@@ -311,12 +324,11 @@ export default function App() {
     }, 2500);
   };
 
-  // Modifier un code promo ou lien (Super-Admin)
-  const handleUpdatePartner = (id: string, newCode: string, newUrl: string) => {
-    const updated = partners.map(p => p.id === id ? { ...p, promoCode: newCode, url: newUrl } : p);
+  const handleUpdatePartner = (id: string, newCode: string, newUrl: string, newLogo: string) => {
+    const updated = partners.map(p => p.id === id ? { ...p, promoCode: newCode, url: newUrl, logoUrl: newLogo } : p);
     setPartners(updated);
     localStorage.setItem('lmpro_partners', JSON.stringify(updated));
-    triggerAdminAction(`Le partenaire ${id.toUpperCase()} a été mis à jour avec le code ${newCode} !`);
+    triggerAdminAction(`Le partenaire ${id.toUpperCase()} a été mis à jour avec succès !`);
   };
 
   const handleAddAdmin = (e: React.FormEvent) => {
@@ -514,25 +526,25 @@ export default function App() {
         <div className="px-6 py-2.5 flex items-center justify-between text-xs border-b bg-[#00D68F]/10 border-[#00D68F]/20 text-[#00D68F]">
           <div className="flex items-center gap-2">
             <Radio size={16} className="animate-pulse text-[#00D68F]" />
-            <span><strong className="text-white">LMPRO MONÉTISATION :</strong> Partenariats Melbet, Betwinner, Goldparis & Betclic actifs</span>
+            <span><strong className="text-white">COTES & PARTENAIRES OFFICIELS :</strong> Melbet, Betwinner, Goldparis & Betclic</span>
           </div>
           <span className="font-mono bg-[#162C50] text-white px-2 py-0.5 rounded text-[10px] font-bold">
-            PRO V2.1
+            FLASHSCORE STYLE
           </span>
         </div>
 
         <div className="p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
 
-          {/* VUE : BONUS & PARTENAIRES OFFICIELS (NOUVEAU !) */}
+          {/* VUE : BONUS & PARTENAIRES OFFICIELS */}
           {currentPage === 'partners' && (
             <div className="space-y-6">
               <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                    <Gift className="text-amber-400" /> Partenaires Officiels & Codes Promo
+                    <Gift className="text-amber-400" /> Partenaires Officiels & Cotes en Direct
                   </h1>
                   <p className="text-xs text-[#94A3B8] mt-1">
-                    Profitez des meilleurs bonus de bienvenue exclusifs négociés par LMPRO pour vos paris sportifs.
+                    Offres exclusives vérifiées par LMPRO pour vos paris en ligne.
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-bold">
@@ -540,7 +552,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Grille des 4 Partenaires */}
+              {/* Grille des Partenaires */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {partners.map((partner) => (
                   <div 
@@ -549,27 +561,45 @@ export default function App() {
                   >
                     <div>
                       <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300">
-                            {partner.badge}
-                          </span>
-                          <h2 className="text-2xl font-black text-white mt-2">{partner.name}</h2>
+                        <div className="flex items-center gap-3">
+                          {/* Image du Logo avec secours stylé */}
+                          <div className="w-12 h-12 rounded-xl bg-[#081426] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden shadow-md">
+                            <img 
+                              src={partner.logoUrl} 
+                              alt={partner.name}
+                              className="w-full h-full object-contain"
+                              onError={(e) => {
+                                // Secours si l'image n'est pas encore posée dans public/partners/
+                                (e.target as HTMLElement).style.display = 'none';
+                                (e.target as HTMLElement).parentElement!.innerHTML = `<span class="font-black text-sm text-amber-400">${partner.name.substring(0, 2).toUpperCase()}</span>`;
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300">
+                              {partner.badge}
+                            </span>
+                            <h2 className="text-xl font-black text-white mt-1">{partner.name}</h2>
+                          </div>
                         </div>
-                        <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${partner.color} flex items-center justify-center font-black text-white text-lg shadow-lg`}>
-                          {partner.name.substring(0, 2).toUpperCase()}
+
+                        {/* Cotes Flashscore */}
+                        <div className="flex items-center gap-1.5 bg-[#081426] p-1.5 rounded-xl border border-[#162C50] text-[11px] font-mono">
+                          <span className="px-2 py-1 bg-[#162C50] rounded text-white font-bold">{partner.odds1}</span>
+                          <span className="px-2 py-1 bg-[#162C50] rounded text-[#94A3B8] font-bold">{partner.oddsX}</span>
+                          <span className="px-2 py-1 bg-[#162C50] rounded text-[#00D68F] font-bold">{partner.odds2}</span>
                         </div>
                       </div>
 
-                      <p className="text-xs text-[#94A3B8] mt-3 font-medium">
-                        Offre exclusive : <strong className="text-white">{partner.bonus}</strong>
+                      <p className="text-xs text-[#94A3B8] mt-4 font-medium">
+                        Offre de bienvenue : <strong className="text-white">{partner.bonus}</strong>
                       </p>
                     </div>
 
                     <div className="space-y-3 pt-2">
-                      {/* Bloc Code Promo avec Copie 1 Clic */}
                       <div className="bg-[#081426] border border-[#162C50] p-3 rounded-xl flex items-center justify-between">
                         <div>
-                          <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">Code Promo Officiel :</span>
+                          <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">Code Promo :</span>
                           <span className="text-base font-black text-[#00D68F] font-mono tracking-wider">{partner.promoCode}</span>
                         </div>
                         <button
@@ -590,14 +620,13 @@ export default function App() {
                         </button>
                       </div>
 
-                      {/* Bouton d'inscription direct avec lien partenaire */}
                       <a
                         href={partner.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full py-3 bg-gradient-to-r from-[#0066FF] to-[#0052CC] hover:opacity-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#0066FF]/20"
+                        className="w-full py-3 bg-gradient-to-r from-[#00D68F] to-[#00a86b] hover:opacity-95 text-black font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#00D68F]/20"
                       >
-                        <span>S'inscrire sur {partner.name} avec le Bonus</span>
+                        <span>Parier sur {partner.name} avec Bonus</span>
                         <ExternalLink size={14} />
                       </a>
                     </div>
@@ -610,7 +639,6 @@ export default function App() {
           {/* VUE CONSOLE D'ADMINISTRATION PROTÉGÉE */}
           {currentPage === 'admin' && (
             <div className="space-y-6">
-              
               {!hasAdminAccess ? (
                 <div className="bg-[#0D1E38] border border-rose-500/30 rounded-2xl p-10 text-center max-w-xl mx-auto my-12 space-y-4 shadow-2xl">
                   <div className="w-16 h-16 rounded-full bg-rose-500/10 border-2 border-rose-500 flex items-center justify-center mx-auto text-rose-400">
@@ -622,23 +650,9 @@ export default function App() {
                       Cette section est strictement confidentielle et réservée au propriétaire (<strong>Christian Diabagate</strong>) et aux administrateurs autorisés.
                     </p>
                   </div>
-
-                  {!user ? (
-                    <button
-                      onClick={handleGoogleLogin}
-                      className="bg-[#0066FF] hover:bg-[#0052CC] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-[#0066FF]/20 transition-all inline-flex items-center gap-2"
-                    >
-                      <LogIn size={16} /> Se connecter avec le compte Propriétaire
-                    </button>
-                  ) : (
-                    <div className="p-3 bg-[#081426] rounded-xl border border-[#162C50] text-xs text-[#94A3B8]">
-                      Connecté avec : <strong className="text-white">{user.email}</strong> (Ce compte ne dispose pas des privilèges administrateur).
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="space-y-6">
-                  
                   {adminNotification && (
                     <div className="p-4 rounded-xl bg-[#00D68F]/20 border border-[#00D68F] text-white text-xs font-bold flex items-center justify-between shadow-lg">
                       <span>✓ {adminNotification}</span>
@@ -664,7 +678,7 @@ export default function App() {
 
                     <div className="flex items-center gap-2">
                       <button 
-                        onClick={() => triggerAdminAction("Synchronisation forcée effectuée avec succès ! Données API rafraîchies.")}
+                        onClick={() => triggerAdminAction("Synchronisation forcée effectuée avec succès !")}
                         className="bg-[#0066FF] hover:bg-[#0052CC] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg shadow-[#0066FF]/20"
                       >
                         🔄 Forcer Synchronisation
@@ -672,7 +686,7 @@ export default function App() {
 
                       {isSuperAdmin && (
                         <button 
-                          onClick={() => triggerAdminAction("Cache mémoire purgé avec succès ! Prochain appel dirigé vers l'API.")}
+                          onClick={() => triggerAdminAction("Cache mémoire purgé avec succès !")}
                           className="bg-[#081426] hover:bg-[#162C50] text-[#94A3B8] hover:text-white border border-[#162C50] px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
                         >
                           🧹 Purger le Cache
@@ -681,14 +695,14 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* GESTION DES CODES PROMOS & LIENS D'AFFILIATION (RÉSERVÉ AU SUPER-ADMIN) */}
+                  {/* CONFIGURATION DES BOOKMAKERS (SUPER-ADMIN) */}
                   {isSuperAdmin && (
                     <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
                       <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <Settings size={18} className="text-amber-400" /> Configuration de vos Codes Promo & Liens Partenaires
+                        <Settings size={18} className="text-amber-400" /> Gestion des Bookmakers & Logos (Style Flashscore)
                       </h3>
                       <p className="text-xs text-[#94A3B8]">
-                        Personnalisez vos codes d'affiliation (Melbet, Betwinner, Goldparis, Betclic) et vos liens de redirection.
+                        Modifiez vos codes promo, vos liens d'affiliation ou le chemin des logos (par défaut : <code>/partners/nom.png</code>).
                       </p>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
@@ -696,7 +710,7 @@ export default function App() {
                           <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-3">
                             <span className="font-bold text-white text-sm block">{p.name}</span>
                             <div>
-                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Code Promo affiché :</label>
+                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Code Promo :</label>
                               <input
                                 type="text"
                                 defaultValue={p.promoCode}
@@ -705,7 +719,7 @@ export default function App() {
                               />
                             </div>
                             <div>
-                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Lien d'affiliation officiel :</label>
+                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Lien d'affiliation :</label>
                               <input
                                 type="text"
                                 defaultValue={p.url}
@@ -713,11 +727,21 @@ export default function App() {
                                 className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-[#0066FF]"
                               />
                             </div>
+                            <div>
+                              <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Chemin du logo image :</label>
+                              <input
+                                type="text"
+                                defaultValue={p.logoUrl}
+                                id={`logo-${p.id}`}
+                                className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono outline-none focus:border-[#0066FF]"
+                              />
+                            </div>
                             <button
                               onClick={() => {
                                 const newC = (document.getElementById(`code-${p.id}`) as HTMLInputElement).value;
                                 const newU = (document.getElementById(`url-${p.id}`) as HTMLInputElement).value;
-                                handleUpdatePartner(p.id, newC, newU);
+                                const newL = (document.getElementById(`logo-${p.id}`) as HTMLInputElement).value;
+                                handleUpdatePartner(p.id, newC, newU, newL);
                               }}
                               className="w-full py-1.5 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-lg text-xs font-bold transition-colors"
                             >
@@ -729,7 +753,7 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* AJOUT D'ADMINISTRATEURS DÉLÉGUÉS */}
+                  {/* GESTION DES DÉLÉGUÉS */}
                   {isSuperAdmin && (
                     <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-5">
                       <div className="flex justify-between items-center">
@@ -738,7 +762,7 @@ export default function App() {
                             <UserPlus size={18} className="text-[#00D68F]" /> Gestion des Administrateurs Délégués
                           </h3>
                           <p className="text-xs text-[#94A3B8]">
-                            Ajoutez des collaborateurs pour vous aider à gérer la plateforme avec des privilèges restreints.
+                            Ajoutez des collaborateurs pour vous aider à gérer la plateforme.
                           </p>
                         </div>
                         <span className="text-xs text-[#94A3B8] font-mono">{adminTeam.length} administrateur(s)</span>
@@ -750,7 +774,7 @@ export default function App() {
                           required
                           value={newAdminName}
                           onChange={(e) => setNewAdminName(e.target.value)}
-                          placeholder="Nom de l'administrateur (ex: Marc)"
+                          placeholder="Nom de l'administrateur"
                           className="bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-2 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
                         />
                         <input
@@ -775,34 +799,31 @@ export default function App() {
                             <tr className="border-b border-[#162C50] text-[#94A3B8] font-semibold">
                               <th className="pb-3">Nom</th>
                               <th className="pb-3">Email</th>
-                              <th className="pb-3">Rôle & Privilèges</th>
-                              <th className="pb-3">Ajouté le</th>
+                              <th className="pb-3">Rôle</th>
                               <th className="pb-3 text-right">Action</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#162C50] text-slate-300">
                             {adminTeam.map((member) => (
                               <tr key={member.id} className="hover:bg-[#081426]/50">
-                                <td className="py-3 font-bold text-white flex items-center gap-2">
+                                <td className="py-3 font-bold text-white">
                                   {member.role === 'SUPER_ADMIN' ? '👑' : '🛡️'} {member.name}
                                 </td>
                                 <td className="py-3 font-mono text-[#94A3B8]">{member.email}</td>
                                 <td className="py-3">
-                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                     member.role === 'SUPER_ADMIN' ? 'bg-amber-400/20 text-amber-400' : 'bg-[#0066FF]/20 text-[#0066FF]'
                                   }`}>
-                                    {member.role === 'SUPER_ADMIN' ? 'Propriétaire (Tous droits)' : 'Admin Standard (Restreint)'}
+                                    {member.role === 'SUPER_ADMIN' ? 'Super-Admin' : 'Admin Délégué'}
                                   </span>
                                 </td>
-                                <td className="py-3 font-mono text-[11px] text-[#94A3B8]">{member.addedAt}</td>
                                 <td className="py-3 text-right">
                                   {member.role === 'SUPER_ADMIN' ? (
-                                    <span className="text-[10px] text-[#94A3B8] italic">Non révocable</span>
+                                    <span className="text-[10px] text-[#94A3B8] italic">Maître</span>
                                   ) : (
                                     <button
                                       onClick={() => handleRemoveAdmin(member.id, member.name)}
-                                      className="text-rose-400 hover:text-rose-300 p-1 transition-colors"
-                                      title="Révoquer cet administrateur"
+                                      className="text-rose-400 hover:text-rose-300 p-1"
                                     >
                                       <Trash2 size={15} />
                                     </button>
@@ -815,39 +836,8 @@ export default function App() {
                       </div>
                     </div>
                   )}
-
-                  {/* Métriques Système */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
-                      <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Quota API Journalier</div>
-                      <div className="text-2xl font-black text-white mt-1 font-mono">14 / 100</div>
-                      <div className="w-full bg-[#081426] h-1.5 rounded-full mt-2 overflow-hidden">
-                        <div className="bg-[#00D68F] h-full" style={{ width: '14%' }} />
-                      </div>
-                      <span className="text-[10px] text-[#00D68F] mt-1 inline-block">86 requêtes disponibles</span>
-                    </div>
-
-                    <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
-                      <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Latence Serveur</div>
-                      <div className="text-2xl font-black text-white mt-1 font-mono">94 ms</div>
-                      <span className="text-[10px] text-[#00D68F]">Cache Vercel Edge actif</span>
-                    </div>
-
-                    <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
-                      <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Précision Poisson</div>
-                      <div className="text-2xl font-black text-[#00D68F] mt-1 font-mono">72.4%</div>
-                      <span className="text-[10px] text-[#94A3B8]">Sur 120 matchs archivés</span>
-                    </div>
-
-                    <div className="bg-[#0D1E38] border border-[#162C50] p-4 rounded-xl">
-                      <div className="text-[11px] text-[#94A3B8] font-bold uppercase">Assistant IA Studio</div>
-                      <div className="text-xl font-black text-[#0066FF] mt-1">Opérationnel</div>
-                      <span className="text-[10px] text-[#94A3B8]">Gemini 1.5 Flash</span>
-                    </div>
-                  </div>
                 </div>
               )}
-
             </div>
           )}
 
@@ -864,13 +854,13 @@ export default function App() {
                     onClick={() => setCurrentPage('partners')}
                     className="flex items-center gap-1.5 bg-amber-400/20 border border-amber-400/40 text-amber-300 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-amber-400/30 transition-all"
                   >
-                    <Gift size={14} className="text-amber-400" /> Bonus Partenaires
+                    <Gift size={14} className="text-amber-400" /> Cotes & Bonus
                   </button>
                   <button
                     onClick={() => setIsAiOpen(true)}
                     className="flex items-center gap-2 bg-gradient-to-r from-[#0066FF] to-[#00D68F] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-[#0066FF]/20 hover:opacity-95 transition-all"
                   >
-                    <Sparkles size={14} /> Demander à l'Analyste IA
+                    <Sparkles size={14} /> Analyste IA
                   </button>
                 </div>
               </div>
@@ -954,7 +944,7 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE D'ANALYSE */}
+          {/* PAGE D'ANALYSE AVEC TABLEAU DE COTES FLASHSCORE */}
           {currentPage === 'analysis' && (
             <div className="space-y-6">
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
@@ -982,25 +972,104 @@ export default function App() {
                 </div>
               </div>
 
-              {/* BANDEAU MONÉTISATION PARTENAIRE SUR LE MATCH */}
-              <div className="bg-gradient-to-r from-amber-500/10 via-[#0D1E38] to-amber-500/10 border border-amber-500/30 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <Flame size={18} className="text-amber-400 shrink-0" />
-                  <span>
-                    Misez sur <strong className="text-white">{selectedMatch.homeTeam.name} vs {selectedMatch.awayTeam.name}</strong> avec le code <strong className="text-[#00D68F] font-mono">LMPRO</strong> et recevez jusqu'à <strong>130 000 FCFA</strong> de bonus !
-                  </span>
+              {/* TABLEAU COMPARATIF DE COTES & BOOKMAKERS (STYLE FLASHSCORE) */}
+              <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <TrendingUp size={16} className="text-[#00D68F]" /> Cotes Officielles & Meilleurs Bonus (Style Flashscore)
+                  </h3>
+                  <span className="text-[11px] text-[#94A3B8]">Cotes 1X2 mises à jour</span>
                 </div>
-                <button
-                  onClick={() => setCurrentPage('partners')}
-                  className="bg-amber-400 hover:bg-amber-300 text-black font-bold px-3 py-1.5 rounded-lg whitespace-nowrap text-xs transition-colors"
-                >
-                  Voir les 4 Bookmakers →
-                </button>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#162C50] text-[#94A3B8] font-bold uppercase text-[10px]">
+                        <th className="pb-3">Bookmaker Partenaire</th>
+                        <th className="pb-3 text-center">1 (Dom)</th>
+                        <th className="pb-3 text-center">X (Nul)</th>
+                        <th className="pb-3 text-center">2 (Ext)</th>
+                        <th className="pb-3">Bonus & Code Promo</th>
+                        <th className="pb-3 text-right">Parier</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#162C50]">
+                      {partners.map((p) => (
+                        <tr key={p.id} className="hover:bg-[#081426]/60 transition-colors">
+                          <td className="py-3.5 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-[#081426] border border-[#162C50] flex items-center justify-center p-1 overflow-hidden shrink-0">
+                              <img 
+                                src={p.logoUrl} 
+                                alt={p.name}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                  (e.target as HTMLElement).parentElement!.innerHTML = `<span class="font-black text-xs text-amber-400">${p.name.substring(0, 2).toUpperCase()}</span>`;
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-white text-xs block">{p.name}</span>
+                              <span className="text-[10px] text-[#00D68F] font-mono">{p.badge}</span>
+                            </div>
+                          </td>
+
+                          {/* Cotes Flashscore encadrées */}
+                          <td className="py-3.5 text-center">
+                            <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-white text-xs cursor-pointer">
+                              {p.odds1}
+                            </span>
+                          </td>
+                          <td className="py-3.5 text-center">
+                            <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#94A3B8] text-xs cursor-pointer">
+                              {p.oddsX}
+                            </span>
+                          </td>
+                          <td className="py-3.5 text-center">
+                            <span className="bg-[#081426] hover:bg-[#0066FF] hover:text-white transition-colors border border-[#162C50] px-2.5 py-1.5 rounded-lg font-mono font-bold text-[#00D68F] text-xs cursor-pointer">
+                              {p.odds2}
+                            </span>
+                          </td>
+
+                          {/* Code Promo avec bouton copie rapide */}
+                          <td className="py-3.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono bg-[#162C50] text-[#00D68F] px-2 py-0.5 rounded font-extrabold text-xs">
+                                {p.promoCode}
+                              </span>
+                              <button
+                                onClick={() => handleCopyCode(p.id, p.promoCode)}
+                                className="text-[#94A3B8] hover:text-white text-[10px] flex items-center gap-1"
+                                title="Copier le code"
+                              >
+                                {copiedCodeId === p.id ? <Check size={12} className="text-[#00D68F]" /> : <Copy size={12} />}
+                              </button>
+                            </div>
+                            <span className="text-[10px] text-[#94A3B8] block mt-0.5 truncate max-w-[180px]">{p.bonus}</span>
+                          </td>
+
+                          {/* Bouton Parier direct Flashscore */}
+                          <td className="py-3.5 text-right">
+                            <a
+                              href={p.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 bg-[#00D68F] hover:bg-[#00b377] text-black font-black px-3.5 py-2 rounded-xl text-xs transition-all shadow-md shadow-[#00D68F]/20"
+                            >
+                              <span>Parier</span>
+                              <ExternalLink size={12} />
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Probabilités 1X2</h3>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Probabilités 1X2 (Loi de Poisson)</h3>
                   <div className="h-48">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={chartData} layout="vertical">
@@ -1077,20 +1146,6 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* Bandeau d'affiliation dans les pronostics */}
-              <div className="bg-[#0D1E38] border border-amber-400/30 p-4 rounded-xl flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <Gift size={16} className="text-amber-400 shrink-0" />
-                  <span>Utilisez le code promo <strong className="text-[#00D68F] font-mono">LMPRO</strong> sur Melbet, Betwinner, Goldparis ou Betclic pour doubler vos dépôts !</span>
-                </div>
-                <button
-                  onClick={() => setCurrentPage('partners')}
-                  className="text-amber-400 font-bold hover:underline whitespace-nowrap text-xs ml-3"
-                >
-                  Voir les offres →
-                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1239,31 +1294,6 @@ export default function App() {
                   }`}>
                     {isSuperAdmin ? '👑 Propriétaire Maître' : isSecondaryAdmin ? '🛡️ Administrateur' : user ? '✓ Membre Connecté' : 'Mode Démo'}
                   </span>
-                </div>
-              </div>
-
-              <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Heart size={16} className="text-[#00D68F]" /> Championnats Favoris
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {LEAGUES_LIST.filter(l => l.code !== 'ALL').map((league) => {
-                    const isFav = favoriteLeagues.includes(league.name);
-                    return (
-                      <button
-                        key={league.code}
-                        onClick={() => {
-                          setFavoriteLeagues(prev => isFav ? prev.filter(l => l !== league.name) : [...prev, league.name]);
-                        }}
-                        className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all ${
-                          isFav ? 'bg-[#0066FF]/20 border-[#0066FF] text-white' : 'bg-[#081426] border-[#162C50] text-[#94A3B8]'
-                        }`}
-                      >
-                        <span className="flex items-center gap-1.5">{league.flag} {league.name}</span>
-                        <span className={`w-2.5 h-2.5 rounded-full ${isFav ? 'bg-[#00D68F]' : 'bg-[#162C50]'}`} />
-                      </button>
-                    );
-                  })}
                 </div>
               </div>
             </div>
