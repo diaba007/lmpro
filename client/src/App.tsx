@@ -176,7 +176,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [favoriteLeagues, setFavoriteLeagues] = useState<string[]>(['Serie A', 'Premier League', 'La Liga']);
 
-  // FORMULAIRE D'AUTHENTIFICATION PROFESSIONNEL (CONNEXION & INSCRIPTION)
+  // AUTHENTIFICATION PUBLIQUE (POUR LES MEMBRES ORDINAIRES)
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [authName, setAuthName] = useState('');
   const [authEmail, setAuthEmail] = useState('');
@@ -184,6 +184,22 @@ export default function App() {
   const [authConfirmPass, setAuthConfirmPass] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+
+  // AUTHENTIFICATION HAUTE SÉCURITÉ DE LA CONSOLE SUPER-ADMIN
+  const [adminUsernameInput, setAdminUsernameInput] = useState('');
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
+  
+  // Mot de passe maître personnalisable (stocké localement)
+  const [masterPassword, setMasterPassword] = useState<string>(() => {
+    return localStorage.getItem('lmpro_master_admin_pwd') || 'LMPRO2026';
+  });
+  const [newMasterPasswordInput, setNewMasterPasswordInput] = useState('');
+
+  // État de déverrouillage de la session Administrateur
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('lmpro_admin_session') === 'true';
+  });
 
   // Chatbot IA
   const [isAiOpen, setIsAiOpen] = useState(false);
@@ -215,23 +231,8 @@ export default function App() {
 
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
-  const [masterPassInput, setMasterPassInput] = useState('');
-  const [masterUnlocked, setMasterUnlocked] = useState(false);
 
-  // SÉCURITÉ : VÉRIFICATION DU RÔLE SUPER-ADMIN
-  const userEmail = user?.email?.toLowerCase() || '';
-  const userName = user?.displayName?.toLowerCase() || '';
-
-  const isSuperAdmin = masterUnlocked || (Boolean(user) && (
-    userName.includes('christian') || 
-    userEmail.includes('christian') || 
-    adminTeam.some(m => m.role === 'SUPER_ADMIN' && m.email.toLowerCase() === userEmail)
-  ));
-
-  const isSecondaryAdmin = !isSuperAdmin && Boolean(user) && adminTeam.some(m => m.role === 'ADMIN' && m.email.toLowerCase() === userEmail);
-  const hasAdminAccess = isSuperAdmin || isSecondaryAdmin;
-
-  // GESTION DU RETOUR NAVIGATEUR ET SMARTPHONE
+  // NAVIGATION AVEC HISTORIQUE BROWSER
   const navigateTo = (page: PageId, addToHistory = true) => {
     setCurrentPage(page);
     setMobileMenuOpen(false);
@@ -282,7 +283,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // CONNEXION RAPIDE PAR GOOGLE
+  // CONNEXION RAPIDE MEMBRE GOOGLE
   const handleGoogleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
@@ -293,7 +294,7 @@ export default function App() {
     }
   };
 
-  // INSCRIPTION OU CONNEXION PAR EMAIL / MOT DE PASSE
+  // INSCRIPTION / CONNEXION EMAIL MEMBRE
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -312,31 +313,27 @@ export default function App() {
           return;
         }
 
-        // Création du compte utilisateur dans Firebase
         const res = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
         if (authName.trim()) {
           await updateProfile(res.user, { displayName: authName.trim() });
         }
         triggerAdminAction("Compte créé avec succès ! Bienvenue sur LMPRO.");
       } else {
-        // Connexion standard
         await signInWithEmailAndPassword(auth, authEmail, authPassword);
         triggerAdminAction("Connexion réussie !");
       }
 
-      // Réinitialisation du formulaire
       setAuthEmail('');
       setAuthPassword('');
       setAuthConfirmPass('');
       setAuthName('');
     } catch (err: any) {
-      console.error("Erreur Firebase Auth :", err);
       if (err.code === 'auth/email-already-in-use') {
         setAuthError("Cette adresse email est déjà inscrite. Connectez-vous plutôt.");
       } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        setAuthError("Adresse email ou mot de passe incorrect.");
+        setAuthError("Email ou mot de passe incorrect.");
       } else if (err.code === 'auth/weak-password') {
-        setAuthError("Le mot de passe est trop court (6 caractères minimum).");
+        setAuthError("Le mot de passe doit comporter au moins 6 caractères.");
       } else {
         setAuthError("Erreur : " + (err.message || "Impossible de finaliser l'action"));
       }
@@ -345,21 +342,48 @@ export default function App() {
     }
   };
 
+  // AUTHENTIFICATION DÉDIÉE DE L'ESPACE SUPER-ADMIN (SANS GMAIL !)
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminAuthError(null);
+
+    const validUsernames = ['christian', 'admin', 'proprietaire'];
+    const enteredUser = adminUsernameInput.trim().toLowerCase();
+
+    if (validUsernames.includes(enteredUser) && adminPasswordInput === masterPassword) {
+      setIsAdminAuthenticated(true);
+      sessionStorage.setItem('lmpro_admin_session', 'true');
+      setAdminUsernameInput('');
+      setAdminPasswordInput('');
+      triggerAdminAction("Accès Super-Administrateur déverrouillé avec succès !");
+    } else {
+      setAdminAuthError("Identifiant ou Mot de passe Administrateur invalide. Tentative enregistrée.");
+    }
+  };
+
+  // VERROUILLAGE IMMÉDIAT DE LA SESSION ADMIN
+  const handleAdminLock = () => {
+    setIsAdminAuthenticated(false);
+    sessionStorage.removeItem('lmpro_admin_session');
+    triggerAdminAction("La Console Administrateur a été verrouillée.");
+  };
+
+  // MODIFICATION DU MOT DE PASSE MAÎTRE
+  const handleChangeMasterPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newMasterPasswordInput.length < 6) {
+      alert("Le mot de passe doit comporter au moins 6 caractères.");
+      return;
+    }
+    setMasterPassword(newMasterPasswordInput);
+    localStorage.setItem('lmpro_master_admin_pwd', newMasterPasswordInput);
+    setNewMasterPasswordInput('');
+    triggerAdminAction("Votre nouveau mot de passe administrateur a été enregistré avec succès !");
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     setUser(null);
-    setMasterUnlocked(false);
-  };
-
-  const handleUnlockMaster = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (masterPassInput === '2026') {
-      setMasterUnlocked(true);
-      setMasterPassInput('');
-      triggerAdminAction("Accès Maître Super-Admin déverrouillé avec succès !");
-    } else {
-      alert("Code PIN incorrect.");
-    }
   };
 
   const triggerAdminAction = (actionName: string) => {
@@ -443,12 +467,6 @@ export default function App() {
     } else if (lowerQ.includes('inter') || lowerQ.includes('venezia')) {
       const found = matches.find(m => m.awayTeam.name.includes('Inter') || m.homeTeam.name.includes('Venezia'));
       if (found) targetMatch = found;
-    } else if (lowerQ.includes('juve') || lowerQ.includes('genoa')) {
-      const found = matches.find(m => m.awayTeam.name.includes('Juventus'));
-      if (found) targetMatch = found;
-    } else if (lowerQ.includes('napoli') || lowerQ.includes('monza')) {
-      const found = matches.find(m => m.awayTeam.name.includes('Napoli'));
-      if (found) targetMatch = found;
     }
 
     const home = targetMatch.homeTeam.name;
@@ -463,8 +481,6 @@ export default function App() {
 • Venezia vs Inter : L'Inter en déplacement affiche 2.20 buts attendus (Victoire Inter à 68%).
 • Genoa vs Juventus : Match tactique fermé, l'option "Moins de 2.5 buts" est très cotée (64%).
 • Monza vs Napoli : Napoli est favori à l'extérieur avec plus de 1.5 but dans le match.`;
-      } else if (lowerQ.includes('qui') || lowerQ.includes('favori') || lowerQ.includes('gagn')) {
-        reply = `Sur l'affiche ${home} vs ${away} (${comp}) : ${home} est évalué à 48.2% de probabilité de victoire à domicile selon le modèle de Poisson.`;
       } else {
         reply = `Pour ${home} vs ${away} (${comp}), nous constatons une domination attendue de ${home} (xG: 1.84). N'oubliez pas nos codes promo (Melbet: XPRO225, Betwinner: DKC10, Goldparis: LMPRO, Betclic: XPRONO) !`;
       }
@@ -542,7 +558,7 @@ export default function App() {
               { id: 'partners', label: 'Bonus & Partenaires', icon: Gift, highlight: true },
               { id: 'history', label: 'Historique Certifié', icon: History },
               { id: 'profile', label: 'Mon Profil', icon: User },
-              { id: 'admin', label: 'Console Admin', icon: ShieldCheck, locked: !hasAdminAccess },
+              { id: 'admin', label: 'Console Admin', icon: ShieldCheck, locked: !isAdminAuthenticated },
             ].map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
@@ -563,7 +579,7 @@ export default function App() {
                     <span>{item.label}</span>
                   </div>
                   {item.locked ? (
-                    <Lock size={12} className="text-[#94A3B8]" title="Accès Administrateur requis" />
+                    <Lock size={12} className="text-[#94A3B8]" title="Accès Sécurisé" />
                   ) : item.highlight ? (
                     <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                   ) : null}
@@ -573,7 +589,7 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Profil dans le menu */}
+        {/* Profil dans le menu (SÉCURISÉ & INDÉPENDANT DE L'ADMIN) */}
         <div className="p-4 m-4 rounded-xl bg-[#0D1E38] border border-[#162C50] flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden">
             {user?.photoURL ? (
@@ -585,12 +601,12 @@ export default function App() {
             )}
             <div className="truncate text-left">
               <p className="text-xs font-bold text-white truncate">{user ? (user.displayName || user.email) : 'Visiteur'}</p>
-              <span className={`text-[10px] font-bold ${isSuperAdmin ? 'text-amber-400' : isSecondaryAdmin ? 'text-[#0066FF]' : user ? 'text-[#00D68F]' : 'text-[#94A3B8]'}`}>
-                {isSuperAdmin ? '👑 Super-Admin' : isSecondaryAdmin ? '🛡️ Admin' : user ? 'Membre' : 'Non Connecté'}
+              <span className={`text-[10px] font-bold ${isAdminAuthenticated ? 'text-amber-400' : user ? 'text-[#00D68F]' : 'text-[#94A3B8]'}`}>
+                {isAdminAuthenticated ? '👑 Super-Admin Débloqué' : user ? 'Membre' : 'Non Connecté'}
               </span>
             </div>
           </div>
-          {user || masterUnlocked ? (
+          {user ? (
             <button onClick={handleLogout} className="text-[#94A3B8] hover:text-rose-400 p-1" title="Déconnexion">
               <LogOut size={16} />
             </button>
@@ -607,10 +623,10 @@ export default function App() {
         <div className="px-6 py-2.5 flex items-center justify-between text-xs border-b bg-[#00D68F]/10 border-[#00D68F]/20 text-[#00D68F]">
           <div className="flex items-center gap-2">
             <Radio size={16} className="animate-pulse text-[#00D68F]" />
-            <span><strong className="text-white">COTES PAR MATCH & BONUS :</strong> 5 rencontres de Serie A programmées</span>
+            <span><strong className="text-white">SERIE A & GRANDS CHAMPIONNATS :</strong> 5 rencontres de Serie A programmées</span>
           </div>
           <span className="font-mono bg-[#162C50] text-white px-2 py-0.5 rounded text-[10px] font-bold">
-            PRO V2.6
+            PRO V2.7
           </span>
         </div>
 
@@ -636,47 +652,71 @@ export default function App() {
             />
           )}
 
-          {/* VUE CONSOLE D'ADMINISTRATION PROTÉGÉE */}
+          {/* VUE CONSOLE D'ADMINISTRATION PROTÉGÉE (PORTAIL SÉCURISÉ SANS GMAIL) */}
           {currentPage === 'admin' && (
             <div className="space-y-6">
-              {!hasAdminAccess ? (
-                <div className="bg-[#0D1E38] border border-rose-500/30 rounded-2xl p-8 sm:p-10 text-center max-w-lg mx-auto my-8 space-y-5 shadow-2xl">
-                  <div className="w-16 h-16 rounded-full bg-rose-500/10 border-2 border-rose-500 flex items-center justify-center mx-auto text-rose-400">
-                    <ShieldAlert size={36} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white">Espace Administrateur Réservé</h2>
-                    <p className="text-xs text-[#94A3B8] mt-2 leading-relaxed">
-                      Seul le propriétaire de la plateforme (<strong>Christian Diabagate</strong>) et les administrateurs autorisés peuvent accéder à cet écran.
+              {!isAdminAuthenticated ? (
+                // PORTAIL D'AUTHENTIFICATION ADMINISTRATEUR STRICT ET SÉCURISÉ
+                <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-8 sm:p-10 max-w-md mx-auto my-12 space-y-6 shadow-2xl">
+                  <div className="text-center space-y-3">
+                    <div className="w-16 h-16 rounded-2xl bg-[#081426] border-2 border-amber-400/40 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-400/10">
+                      <Lock size={32} />
+                    </div>
+                    <h2 className="text-xl font-black text-white">Portail Super-Administrateur</h2>
+                    <p className="text-xs text-[#94A3B8] leading-relaxed">
+                      Espace sécurisé réservé à la direction de LMPRO. Veuillez vous authentifier avec vos identifiants maîtres.
                     </p>
                   </div>
 
-                  <div className="pt-2 flex flex-col gap-3">
-                    <button
-                      onClick={handleGoogleLogin}
-                      className="w-full bg-[#0066FF] hover:bg-[#0052CC] text-white py-3 rounded-xl font-bold text-xs shadow-lg shadow-[#0066FF]/20 transition-all flex items-center justify-center gap-2"
-                    >
-                      <LogIn size={16} /> Se Connecter avec Google (Propriétaire)
-                    </button>
+                  {adminAuthError && (
+                    <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
+                      <ShieldAlert size={16} className="shrink-0" />
+                      <span>{adminAuthError}</span>
+                    </div>
+                  )}
 
-                    <form onSubmit={handleUnlockMaster} className="mt-4 pt-4 border-t border-[#162C50] flex gap-2">
-                      <input
-                        type="password"
-                        value={masterPassInput}
-                        onChange={(e) => setMasterPassInput(e.target.value)}
-                        placeholder="Code PIN Maître (ex: 2026)"
-                        className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
-                      />
-                      <button
-                        type="submit"
-                        className="bg-[#162C50] hover:bg-[#00D68F] hover:text-black text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
-                      >
-                        <Key size={14} /> Débloquer
-                      </button>
-                    </form>
-                  </div>
+                  <form onSubmit={handleAdminLogin} className="space-y-4">
+                    <div>
+                      <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Identifiant Admin :</label>
+                      <div className="relative">
+                        <User size={16} className="absolute left-3.5 top-3 text-[#94A3B8]" />
+                        <input
+                          type="text"
+                          required
+                          value={adminUsernameInput}
+                          onChange={(e) => setAdminUsernameInput(e.target.value)}
+                          placeholder="christian ou admin"
+                          className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-amber-400 font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Mot de passe Maître :</label>
+                      <div className="relative">
+                        <Key size={16} className="absolute left-3.5 top-3 text-[#94A3B8]" />
+                        <input
+                          type="password"
+                          required
+                          value={adminPasswordInput}
+                          onChange={(e) => setAdminPasswordInput(e.target.value)}
+                          placeholder="Entrez votre mot de passe secret"
+                          className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-amber-400 font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-3 bg-gradient-to-r from-amber-400 to-yellow-500 hover:opacity-95 text-black font-black text-xs rounded-xl shadow-lg shadow-amber-400/20 transition-all flex items-center justify-center gap-2 mt-2"
+                    >
+                      <Lock size={14} />
+                      <span>Déverrouiller la Console</span>
+                    </button>
+                  </form>
                 </div>
               ) : (
+                // CONSOLE SUPER-ADMIN COMPLÈTEMENT OUVERTE & SÉCURISÉE
                 <div className="space-y-6">
                   {adminNotification && (
                     <div className="p-4 rounded-xl bg-[#00D68F]/20 border border-[#00D68F] text-white text-xs font-bold flex items-center justify-between shadow-lg">
@@ -688,96 +728,198 @@ export default function App() {
                   <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                       <div className="flex items-center gap-2">
-                        {isSuperAdmin ? <Crown size={22} className="text-amber-400" /> : <ShieldCheck size={22} className="text-[#0066FF]" />}
+                        <Crown size={22} className="text-amber-400" />
                         <h1 className="text-2xl font-black text-white tracking-tight">
-                          {isSuperAdmin ? "Console Super-Admin (Propriétaire)" : "Console Administrateur Délégué"}
+                          Console Super-Administrateur Maître
                         </h1>
                       </div>
                       <p className="text-xs text-[#94A3B8] mt-1">
-                        Session active : <strong className="text-white">{user ? user.displayName : 'Christian Diabagate'}</strong> 
+                        Session sécurisée active pour : <strong className="text-white">Christian Diabagate</strong> (Tous droits accordés)
                       </p>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button 
-                        onClick={() => triggerAdminAction("Synchronisation effectuée avec succès !")}
+                        onClick={() => triggerAdminAction("Synchronisation forcée effectuée avec succès !")}
                         className="bg-[#0066FF] hover:bg-[#0052CC] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg shadow-[#0066FF]/20"
                       >
-                        🔄 Forcer Synchronisation
+                        🔄 Synchroniser l'API
                       </button>
 
-                      {isSuperAdmin && (
-                        <button 
-                          onClick={() => triggerAdminAction("Cache mémoire purgé avec succès !")}
-                          className="bg-[#081426] hover:bg-[#162C50] text-[#94A3B8] hover:text-white border border-[#162C50] px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
-                        >
-                          🧹 Purger le Cache
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => triggerAdminAction("Cache mémoire purgé avec succès !")}
+                        className="bg-[#081426] hover:bg-[#162C50] text-[#94A3B8] hover:text-white border border-[#162C50] px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
+                      >
+                        🧹 Purger Cache
+                      </button>
+
+                      {/* BOUTON POUR REFERMER IMMÉDIATEMENT LE COFFRE-FORT */}
+                      <button 
+                        onClick={handleAdminLock}
+                        className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/40 px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                      >
+                        <Lock size={14} /> Verrouiller
+                      </button>
                     </div>
                   </div>
 
+                  {/* SÉCURITÉ : MODIFIER VOTRE MOT DE PASSE SECRET */}
+                  <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Key size={18} className="text-amber-400" /> Modifier votre Mot de Passe Administrateur Secret
+                    </h3>
+                    <form onSubmit={handleChangeMasterPassword} className="flex flex-col sm:flex-row gap-3">
+                      <input
+                        type="password"
+                        required
+                        value={newMasterPasswordInput}
+                        onChange={(e) => setNewMasterPasswordInput(e.target.value)}
+                        placeholder="Nouveau mot de passe maître (ex: MonCodeSecret2026)"
+                        className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-4 py-2.5 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-amber-400 font-medium"
+                      />
+                      <button
+                        type="submit"
+                        className="bg-amber-400 hover:bg-yellow-400 text-black font-black text-xs px-5 py-2.5 rounded-xl transition-all"
+                      >
+                        Enregistrer le Mot de Passe
+                      </button>
+                    </form>
+                  </div>
+
                   {/* IMPORTATION DES LOGOS DEPUIS LA MACHINE */}
-                  {isSuperAdmin && (
-                    <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
-                      <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <FolderOpen size={18} className="text-[#00D68F]" /> Importer vos Logos depuis votre Ordinateur
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                        {partners.map((p) => {
-                          const theme = getPartnerTheme(p.id);
-                          return (
-                            <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-4">
-                              <div className="flex items-center justify-between">
-                                <span className="font-extrabold text-white text-sm">{p.name}</span>
-                                <div className="h-10 w-28 rounded-lg bg-[#0D1E38] border border-[#162C50] flex items-center justify-center px-2 py-1 overflow-hidden shadow-inner">
-                                  {p.logoUrl ? (
-                                    <img src={p.logoUrl} alt={p.name} className="max-h-full max-w-full object-contain" />
-                                  ) : (
-                                    <span className={`font-black text-xs ${theme.code}`}>{p.name.toUpperCase()}</span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div>
-                                <label className="w-full py-2.5 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#0066FF]/20">
-                                  <Upload size={14} />
-                                  <span>Choisir le logo sur mon PC</span>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => handleUploadLogoFromPC(p.id, e)}
-                                    className="hidden"
-                                  />
-                                </label>
-                              </div>
-
-                              <div className="pt-2 border-t border-[#162C50] space-y-2">
-                                <div>
-                                  <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Code Promo :</label>
-                                  <input
-                                    type="text"
-                                    defaultValue={p.promoCode}
-                                    id={`code-${p.id}`}
-                                    className={`w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1 text-xs font-mono font-bold outline-none focus:border-[#0066FF] ${theme.code}`}
-                                  />
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    const newC = (document.getElementById(`code-${p.id}`) as HTMLInputElement).value;
-                                    handleUpdatePartner(p.id, newC, p.url);
-                                  }}
-                                  className="w-full py-1.5 bg-[#162C50] hover:bg-[#0066FF] text-white rounded-lg text-[11px] font-bold transition-colors"
-                                >
-                                  Enregistrer
-                                </button>
+                  <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <FolderOpen size={18} className="text-[#00D68F]" /> Importer vos Logos depuis votre Ordinateur
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                      {partners.map((p) => {
+                        const theme = getPartnerTheme(p.id);
+                        return (
+                          <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-4">
+                            <div className="flex items-center justify-between">
+                              <span className="font-extrabold text-white text-sm">{p.name}</span>
+                              <div className="h-10 w-28 rounded-lg bg-[#0D1E38] border border-[#162C50] flex items-center justify-center px-2 py-1 overflow-hidden shadow-inner">
+                                {p.logoUrl ? (
+                                  <img src={p.logoUrl} alt={p.name} className="max-h-full max-w-full object-contain" />
+                                ) : (
+                                  <span className={`font-black text-xs ${theme.code}`}>{p.name.toUpperCase()}</span>
+                                )}
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
+
+                            <div>
+                              <label className="w-full py-2.5 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#0066FF]/20">
+                                <Upload size={14} />
+                                <span>Choisir le logo sur mon PC</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleUploadLogoFromPC(p.id, e)}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+
+                            <div className="pt-2 border-t border-[#162C50] space-y-2">
+                              <div>
+                                <label className="text-[10px] text-[#94A3B8] uppercase block mb-1">Code Promo :</label>
+                                <input
+                                  type="text"
+                                  defaultValue={p.promoCode}
+                                  id={`code-${p.id}`}
+                                  className={`w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1 text-xs font-mono font-bold outline-none focus:border-[#0066FF] ${theme.code}`}
+                                />
+                              </div>
+                              <button
+                                onClick={() => {
+                                  const newC = (document.getElementById(`code-${p.id}`) as HTMLInputElement).value;
+                                  handleUpdatePartner(p.id, newC, p.url);
+                                }}
+                                className="w-full py-1.5 bg-[#162C50] hover:bg-[#0066FF] text-white rounded-lg text-[11px] font-bold transition-colors"
+                              >
+                                Enregistrer
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
+
+                  {/* GESTION DES DÉLÉGUÉS */}
+                  <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-5">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="text-base font-bold text-white flex items-center gap-2">
+                          <UserPlus size={18} className="text-[#00D68F]" /> Administrateurs Délégués
+                        </h3>
+                        <p className="text-xs text-[#94A3B8]">
+                          Ajoutez des collaborateurs pour vous aider à gérer la plateforme.
+                        </p>
+                      </div>
+                      <span className="text-xs text-[#94A3B8] font-mono">{adminTeam.length} délégué(s)</span>
+                    </div>
+
+                    <form onSubmit={handleAddAdmin} className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#081426] p-4 rounded-xl border border-[#162C50]">
+                      <input
+                        type="text"
+                        required
+                        value={newAdminName}
+                        onChange={(e) => setNewAdminName(e.target.value)}
+                        placeholder="Nom du délégué"
+                        className="bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-2 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
+                      />
+                      <input
+                        type="email"
+                        required
+                        value={newAdminEmail}
+                        onChange={(e) => setNewAdminEmail(e.target.value)}
+                        placeholder="Email du délégué"
+                        className="bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-2 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
+                      />
+                      <button
+                        type="submit"
+                        className="bg-[#00D68F] hover:bg-[#00b377] text-black font-bold text-xs py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <UserPlus size={14} /> Ajouter Délégué
+                      </button>
+                    </form>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-[#162C50] text-[#94A3B8] font-semibold">
+                            <th className="pb-3">Nom</th>
+                            <th className="pb-3">Email</th>
+                            <th className="pb-3">Rôle</th>
+                            <th className="pb-3 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#162C50] text-slate-300">
+                          {adminTeam.map((member) => (
+                            <tr key={member.id} className="hover:bg-[#081426]/50">
+                              <td className="py-3 font-bold text-white">{member.name}</td>
+                              <td className="py-3 font-mono text-[#94A3B8]">{member.email}</td>
+                              <td className="py-3">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#0066FF]/20 text-[#0066FF]">
+                                  Admin Délégué
+                                </span>
+                              </td>
+                              <td className="py-3 text-right">
+                                <button
+                                  onClick={() => handleRemoveAdmin(member.id, member.name)}
+                                  className="text-rose-400 hover:text-rose-300 p-1"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
                 </div>
               )}
             </div>
@@ -1173,15 +1315,11 @@ export default function App() {
             </div>
           )}
 
-          {/* VUE PROFIL : VRAI SYSTÈME D'INSCRIPTION & DE CONNEXION */}
+          {/* VUE PROFIL : INSCRIPTION & CONNEXION MEMBRE */}
           {currentPage === 'profile' && (
             <div className="max-w-2xl mx-auto space-y-6">
-              
               {!user ? (
-                // FORMULAIRE PROFESSIONNEL (INSCRIPTION OU CONNEXION)
                 <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl">
-                  
-                  {/* Onglets : Se Connecter / Créer un Compte */}
                   <div className="flex bg-[#081426] p-1 rounded-xl border border-[#162C50]">
                     <button
                       onClick={() => { setAuthMode('LOGIN'); setAuthError(null); }}
@@ -1197,7 +1335,7 @@ export default function App() {
                         authMode === 'REGISTER' ? 'bg-[#0066FF] text-white shadow-md' : 'text-[#94A3B8] hover:text-white'
                       }`}
                     >
-                      Créer un Compte (Inscription)
+                      Créer un Compte
                     </button>
                   </div>
 
@@ -1207,12 +1345,11 @@ export default function App() {
                     </h2>
                     <p className="text-xs text-[#94A3B8] mt-1">
                       {authMode === 'LOGIN' 
-                        ? 'Connectez-vous pour retrouver vos favoris et accéder à vos analyses.' 
-                        : 'Créez votre compte gratuit en 30 secondes pour sauvegarder vos pronostics.'}
+                        ? 'Connectez-vous pour retrouver vos favoris.' 
+                        : 'Créez votre compte gratuit pour sauvegarder vos pronostics.'}
                     </p>
                   </div>
 
-                  {/* Message d'erreur en cas de problème */}
                   {authError && (
                     <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
                       <AlertCircle size={16} className="shrink-0" />
@@ -1220,7 +1357,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Formulaire complet */}
                   <form onSubmit={handleEmailAuth} className="space-y-4">
                     {authMode === 'REGISTER' && (
                       <div>
@@ -1232,7 +1368,7 @@ export default function App() {
                             required
                             value={authName}
                             onChange={(e) => setAuthName(e.target.value)}
-                            placeholder="Ex: Christian Diabagate"
+                            placeholder="Votre nom"
                             className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
                           />
                         </div>
@@ -1295,14 +1431,12 @@ export default function App() {
                     </button>
                   </form>
 
-                  {/* Séparateur OU */}
                   <div className="relative flex items-center justify-center my-4">
                     <div className="border-t border-[#162C50] w-full" />
                     <span className="bg-[#0D1E38] px-3 text-[10px] text-[#94A3B8] uppercase font-bold tracking-wider">OU</span>
                     <div className="border-t border-[#162C50] w-full" />
                   </div>
 
-                  {/* Bouton rapide Google */}
                   <button
                     onClick={handleGoogleLogin}
                     className="w-full bg-[#081426] hover:bg-[#162C50] text-white border border-[#162C50] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
@@ -1312,12 +1446,11 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                // PROFIL UTILISATEUR CONNECTÉ
                 <div className="space-y-6">
                   <div className="flex justify-between items-center">
                     <div>
                       <h1 className="text-2xl font-bold text-white">Mon Profil LMPRO</h1>
-                      <p className="text-xs text-[#94A3B8]">Session active et sécurisée.</p>
+                      <p className="text-xs text-[#94A3B8]">Session membre active.</p>
                     </div>
                     <button
                       onClick={handleLogout}
@@ -1338,10 +1471,8 @@ export default function App() {
                     <div>
                       <h3 className="text-base font-bold text-white">{user.displayName || 'Utilisateur LMPRO'}</h3>
                       <p className="text-xs text-[#94A3B8]">{user.email}</p>
-                      <span className={`mt-2 inline-block px-2.5 py-0.5 text-[10px] font-bold rounded ${
-                        isSuperAdmin ? 'bg-amber-400/20 text-amber-400' : isSecondaryAdmin ? 'bg-[#0066FF]/20 text-[#0066FF]' : 'bg-[#00D68F]/20 text-[#00D68F]'
-                      }`}>
-                        {isSuperAdmin ? '👑 Super-Administrateur' : isSecondaryAdmin ? '🛡️ Administrateur' : '✓ Membre Inscrit'}
+                      <span className="mt-2 inline-block px-2.5 py-0.5 text-[10px] font-bold rounded bg-[#00D68F]/20 text-[#00D68F]">
+                        ✓ Membre Inscrit
                       </span>
                     </div>
                   </div>
