@@ -1,6 +1,6 @@
 export default async function handler(req, res) {
   // Votre clé API football-data.org (configurée sur Vercel ou à coller ici)
-  const API_KEY = process.env.FOOTBALL_DATA_API_KEY || '5e979fe1a7884c7a8d5b30c04587438e';
+  const API_KEY = process.env.FOOTBALL_DATA_API_KEY || 'VOTRE_CLE_FOOTBALL_DATA_ICI';
 
   try {
     // Appel direct vers football-data.org v4 pour les matchs d'aujourd'hui
