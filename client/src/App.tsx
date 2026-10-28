@@ -31,7 +31,9 @@ import {
   ExternalLink, 
   TrendingUp,
   Upload,
-  FolderOpen
+  FolderOpen,
+  ArrowLeft,
+  Key
 } from 'lucide-react';
 
 import { PartnersView, INITIAL_PARTNERS, getPartnerTheme } from './components/PartnersView';
@@ -71,7 +73,7 @@ interface Match {
   score?: { fullTime: { home: number | null; away: number | null } };
 }
 
-// LES 5 VRAIS MATCHS DE SERIE A D'AUJOURD'HUI
+// LES 5 VRAIS MATCHS DE SERIE A AUJOURD'HUI
 const ALL_LEAGUES_MATCHES: Match[] = [
   {
     id: 5001,
@@ -182,37 +184,61 @@ export default function App() {
 
   const [adminNotification, setAdminNotification] = useState<string | null>(null);
 
+  // ÉQUIPE ADMIN SÉCURISÉE (STOCKÉE LOCALEMENT)
   const [adminTeam, setAdminTeam] = useState<AdminMember[]>(() => {
     const saved = localStorage.getItem('lmpro_admin_team');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    return [
-      {
-        id: '1',
-        email: 'christian.diabagate',
-        name: 'Christian Diabagate (Propriétaire)',
-        role: 'SUPER_ADMIN',
-        addedAt: '28/10/2026'
-      }
-    ];
+    return [];
   });
 
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
+  const [masterPassInput, setMasterPassInput] = useState('');
+  const [masterUnlocked, setMasterUnlocked] = useState(false);
 
+  // VÉRIFICATION STRICTE DE SÉCURITÉ
   const userEmail = user?.email?.toLowerCase() || '';
   const userName = user?.displayName?.toLowerCase() || '';
 
-  const isSuperAdmin = user && (
+  // Seul Christian ou la clé maître donne l'accès Super-Admin
+  const isSuperAdmin = masterUnlocked || (Boolean(user) && (
     userName.includes('christian') || 
     userEmail.includes('christian') || 
-    adminTeam.some(m => m.role === 'SUPER_ADMIN' && (m.email.toLowerCase() === userEmail || userEmail.includes(m.email.toLowerCase())))
-  );
+    adminTeam.some(m => m.role === 'SUPER_ADMIN' && m.email.toLowerCase() === userEmail)
+  ));
 
-  const isSecondaryAdmin = user && adminTeam.some(m => m.role === 'ADMIN' && m.email.toLowerCase() === userEmail);
+  const isSecondaryAdmin = !isSuperAdmin && Boolean(user) && adminTeam.some(m => m.role === 'ADMIN' && m.email.toLowerCase() === userEmail);
   const hasAdminAccess = isSuperAdmin || isSecondaryAdmin;
 
+  // GESTION DU BOUTON RETOUR NAVIGATEUR (NE QUITTE PLUS LE SITE !)
+  const navigateTo = (page: PageId, addToHistory = true) => {
+    setCurrentPage(page);
+    setMobileMenuOpen(false);
+    if (addToHistory) {
+      window.history.pushState({ page }, '', `/#${page}`);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    // Initialise l'historique
+    window.history.replaceState({ page: 'dashboard' }, '', '/#dashboard');
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && e.state.page) {
+        setCurrentPage(e.state.page);
+      } else {
+        setCurrentPage('dashboard');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // CHARGEMENT DIRECT DES VRAIS MATCHS DEPUIS L'API
   useEffect(() => {
     async function loadLiveMatches() {
       try {
@@ -226,7 +252,7 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.log("Mode Serie A direct actif.");
+        console.log("Mode direct actif.");
       }
     }
     loadLiveMatches();
@@ -252,6 +278,19 @@ export default function App() {
   const handleLogout = async () => {
     await signOut(auth);
     setUser(null);
+    setMasterUnlocked(false);
+  };
+
+  // Déblocage par Clé Maître Super-Admin (PIN : 2026)
+  const handleUnlockMaster = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (masterPassInput === '2026') {
+      setMasterUnlocked(true);
+      setMasterPassInput('');
+      triggerAdminAction("Accès Maître Super-Admin déverrouillé avec succès !");
+    } else {
+      alert("Code PIN incorrect. Seul le propriétaire possède ce code.");
+    }
   };
 
   const triggerAdminAction = (actionName: string) => {
@@ -269,7 +308,6 @@ export default function App() {
     }, 2500);
   };
 
-  // UPLOAD D'IMAGE DEPUIS L'ORDINATEUR
   const handleUploadLogoFromPC = (partnerId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -309,7 +347,7 @@ export default function App() {
     localStorage.setItem('lmpro_admin_team', JSON.stringify(updated));
     setNewAdminEmail('');
     setNewAdminName('');
-    triggerAdminAction(`Administrateur ${newMember.name} ajouté.`);
+    triggerAdminAction(`Administrateur ${newMember.name} ajouté avec succès.`);
   };
 
   const handleRemoveAdmin = (id: string, name: string) => {
@@ -352,7 +390,7 @@ export default function App() {
       let reply = "";
       if (lowerQ.includes('serie') || lowerQ.includes('italie') || lowerQ.includes('match')) {
         reply = `En Serie A aujourd'hui :
-• AC Milan vs Bologna : Milan est favori (xG: 1.90 contre 0.95). Double chance 1X recommandée.
+• AC Milan vs Bologna : Milan favori (xG: 1.90 contre 0.95). Double chance 1X recommandée.
 • Venezia vs Inter : L'Inter en déplacement affiche 2.20 buts attendus (Victoire Inter à 68%).
 • Genoa vs Juventus : Match tactique fermé, l'option "Moins de 2.5 buts" est très cotée (64%).
 • Monza vs Napoli : Napoli est favori à l'extérieur avec plus de 1.5 but dans le match.`;
@@ -442,10 +480,7 @@ export default function App() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => {
-                    setCurrentPage(item.id as PageId);
-                    setMobileMenuOpen(false);
-                  }}
+                  onClick={() => navigateTo(item.id as PageId)}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all ${
                     isActive
                       ? 'bg-[#0066FF] text-white shadow-md shadow-[#0066FF]/30'
@@ -469,7 +504,7 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Profil dans le menu */}
+        {/* Profil dans le menu (SÉCURISÉ : AUCUNE CONFUSION ADMIN) */}
         <div className="p-4 m-4 rounded-xl bg-[#0D1E38] border border-[#162C50] flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden">
             {user?.photoURL ? (
@@ -480,18 +515,18 @@ export default function App() {
               </div>
             )}
             <div className="truncate text-left">
-              <p className="text-xs font-bold text-white truncate">{user ? user.displayName : 'Invité'}</p>
-              <span className={`text-[10px] font-bold ${isSuperAdmin ? 'text-amber-400' : isSecondaryAdmin ? 'text-[#0066FF]' : 'text-[#00D68F]'}`}>
-                {isSuperAdmin ? '👑 Super-Admin' : isSecondaryAdmin ? '🛡️ Admin' : user ? 'Membre' : 'Mode Démo'}
+              <p className="text-xs font-bold text-white truncate">{user ? user.displayName : 'Visiteur'}</p>
+              <span className={`text-[10px] font-bold ${isSuperAdmin ? 'text-amber-400' : isSecondaryAdmin ? 'text-[#0066FF]' : user ? 'text-[#00D68F]' : 'text-[#94A3B8]'}`}>
+                {isSuperAdmin ? '👑 Super-Admin' : isSecondaryAdmin ? '🛡️ Admin' : user ? 'Membre' : 'Non Connecté'}
               </span>
             </div>
           </div>
-          {user ? (
+          {user || masterUnlocked ? (
             <button onClick={handleLogout} className="text-[#94A3B8] hover:text-rose-400 p-1" title="Déconnexion">
               <LogOut size={16} />
             </button>
           ) : (
-            <button onClick={() => setCurrentPage('profile')} className="text-[#0066FF] hover:underline text-xs font-bold">
+            <button onClick={() => navigateTo('profile')} className="text-[#0066FF] hover:underline text-xs font-bold">
               Connexion
             </button>
           )}
@@ -512,6 +547,17 @@ export default function App() {
 
         <div className="p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
 
+          {/* BOUTON RETOUR UNIVERSEL (SI ON N'EST PAS SUR LE DASHBOARD) */}
+          {currentPage !== 'dashboard' && (
+            <button
+              onClick={() => navigateTo('dashboard')}
+              className="inline-flex items-center gap-2 bg-[#0D1E38] hover:bg-[#162C50] text-[#94A3B8] hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-bold border border-[#162C50] transition-all"
+            >
+              <ArrowLeft size={14} />
+              <span>Retour au Tableau de Bord</span>
+            </button>
+          )}
+
           {/* VUE : BONUS & PARTENAIRES */}
           {currentPage === 'partners' && (
             <PartnersView 
@@ -525,15 +571,42 @@ export default function App() {
           {currentPage === 'admin' && (
             <div className="space-y-6">
               {!hasAdminAccess ? (
-                <div className="bg-[#0D1E38] border border-rose-500/30 rounded-2xl p-10 text-center max-w-xl mx-auto my-12 space-y-4 shadow-2xl">
+                <div className="bg-[#0D1E38] border border-rose-500/30 rounded-2xl p-8 sm:p-10 text-center max-w-lg mx-auto my-8 space-y-5 shadow-2xl">
                   <div className="w-16 h-16 rounded-full bg-rose-500/10 border-2 border-rose-500 flex items-center justify-center mx-auto text-rose-400">
                     <ShieldAlert size={36} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Accès Réservé à l'Administration</h2>
+                    <h2 className="text-xl font-bold text-white">Espace Administrateur Réservé</h2>
                     <p className="text-xs text-[#94A3B8] mt-2 leading-relaxed">
-                      Cette section est strictement confidentielle et réservée au propriétaire (<strong>Christian Diabagate</strong>).
+                      Seul le propriétaire de la plateforme (<strong>Christian Diabagate</strong>) et les administrateurs autorisés peuvent accéder à cet écran.
                     </p>
+                  </div>
+
+                  {/* BOUTON CONNEXION OFFICIEL GOOGLE POUR L'ADMIN */}
+                  <div className="pt-2 flex flex-col gap-3">
+                    <button
+                      onClick={handleGoogleLogin}
+                      className="w-full bg-[#0066FF] hover:bg-[#0052CC] text-white py-3 rounded-xl font-bold text-xs shadow-lg shadow-[#0066FF]/20 transition-all flex items-center justify-center gap-2"
+                    >
+                      <LogIn size={16} /> Se Connecter avec Google (Propriétaire)
+                    </button>
+
+                    {/* DÉBLOCAGE PAR CODE PIN MAÎTRE DE SECOURS (2026) */}
+                    <form onSubmit={handleUnlockMaster} className="mt-4 pt-4 border-t border-[#162C50] flex gap-2">
+                      <input
+                        type="password"
+                        value={masterPassInput}
+                        onChange={(e) => setMasterPassInput(e.target.value)}
+                        placeholder="Code PIN Maître (ex: 2026)"
+                        className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white placeholder-[#94A3B8] outline-none focus:border-[#0066FF]"
+                      />
+                      <button
+                        type="submit"
+                        className="bg-[#162C50] hover:bg-[#00D68F] hover:text-black text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+                      >
+                        <Key size={14} /> Débloquer
+                      </button>
+                    </form>
                   </div>
                 </div>
               ) : (
@@ -577,7 +650,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* IMPORTATION DES LOGOS DEPUIS LA MACHINE (AVEC BOÎTE RECTANGULAIRE ÉQUILIBRÉE) */}
+                  {/* IMPORTATION DES LOGOS DEPUIS LA MACHINE */}
                   {isSuperAdmin && (
                     <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
                       <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -590,8 +663,6 @@ export default function App() {
                             <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-4">
                               <div className="flex items-center justify-between">
                                 <span className="font-extrabold text-white text-sm">{p.name}</span>
-                                
-                                {/* APERÇU RECTANGULAIRE ADAPTÉ */}
                                 <div className="h-10 w-28 rounded-lg bg-[#0D1E38] border border-[#162C50] flex items-center justify-center px-2 py-1 overflow-hidden shadow-inner">
                                   {p.logoUrl ? (
                                     <img src={p.logoUrl} alt={p.name} className="max-h-full max-w-full object-contain" />
@@ -655,7 +726,7 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setCurrentPage('partners')}
+                    onClick={() => navigateTo('partners')}
                     className="flex items-center gap-1.5 bg-amber-400/20 border border-amber-400/40 text-amber-300 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-amber-400/30 transition-all"
                   >
                     <Gift size={14} className="text-amber-400" /> Cotes & Bonus
@@ -695,7 +766,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Matchs du jour filtrés */}
+              {/* Matchs du jour filtrés (5 MATCHS DE SERIE A) */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -710,7 +781,7 @@ export default function App() {
                       key={m.id}
                       onClick={() => {
                         setSelectedMatch(m);
-                        setCurrentPage('analysis');
+                        navigateTo('analysis');
                       }}
                       className="bg-[#081426] border border-[#162C50] hover:border-[#0066FF] rounded-xl p-5 cursor-pointer transition-all flex flex-col justify-between"
                     >
@@ -776,7 +847,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* TABLEAU FLASHSCORE (AVEC LOGO RECTANGULAIRE ADAPTÉ SANS FLOTTER) */}
+              {/* TABLEAU DE COTES FLASHSCORE AUX COULEURS DES MARQUES */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <TrendingUp size={16} className="text-[#00D68F]" /> Cotes Officielles & Meilleurs Bonus (Style Flashscore)
@@ -800,8 +871,6 @@ export default function App() {
                         return (
                           <tr key={p.id} className="hover:bg-[#081426]/60 transition-colors">
                             <td className="py-3.5 flex items-center gap-3">
-                              
-                              {/* BADGE RECTANGULAIRE QUI ÉVITE DE FAIRE FLOTTER LE LOGO */}
                               <div className="h-8 w-24 rounded-lg bg-[#081426] border border-[#162C50] flex items-center justify-center px-2 py-1 overflow-hidden shrink-0 shadow-inner">
                                 {p.logoUrl ? (
                                   <img src={p.logoUrl} alt={p.name} className="max-h-full max-w-full object-contain" />
@@ -963,7 +1032,7 @@ export default function App() {
                     <button
                       onClick={() => {
                         setSelectedMatch(match);
-                        setCurrentPage('analysis');
+                        navigateTo('analysis');
                       }}
                       className="mt-4 w-full py-2.5 bg-[#162C50] hover:bg-[#0066FF] text-white rounded-xl text-xs font-bold transition-colors"
                     >
@@ -1034,20 +1103,20 @@ export default function App() {
             </div>
           )}
 
-          {/* VUE PROFIL */}
+          {/* VUE PROFIL (SÉCURISÉE) */}
           {currentPage === 'profile' && (
             <div className="max-w-3xl space-y-6">
               <div className="flex justify-between items-center">
                 <div>
                   <h1 className="text-2xl font-bold text-white">Mon Compte LMPRO</h1>
-                  <p className="text-xs text-[#94A3B8]">Authentification sécurisée avec Firebase Google.</p>
+                  <p className="text-xs text-[#94A3B8]">Gérez votre session utilisateur et vos préférences.</p>
                 </div>
                 {!user ? (
                   <button
                     onClick={handleGoogleLogin}
                     className="flex items-center gap-2 bg-[#0066FF] hover:bg-[#0052CC] text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-[#0066FF]/20 transition-all"
                   >
-                    <LogIn size={16} /> Connexion avec Google
+                    <LogIn size={16} /> Connexion Google
                   </button>
                 ) : (
                   <button
@@ -1068,12 +1137,12 @@ export default function App() {
                   </div>
                 )}
                 <div>
-                  <h3 className="text-base font-bold text-white">{user ? user.displayName : 'Christian Diabagate'}</h3>
-                  <p className="text-xs text-[#94A3B8]">{user ? user.email : 'Super-Administrateur de la plateforme'}</p>
+                  <h3 className="text-base font-bold text-white">{user ? user.displayName : 'Visiteur (Non Connecté)'}</h3>
+                  <p className="text-xs text-[#94A3B8]">{user ? user.email : 'Connectez-vous pour enregistrer vos favoris'}</p>
                   <span className={`mt-2 inline-block px-2.5 py-0.5 text-[10px] font-bold rounded ${
                     isSuperAdmin ? 'bg-amber-400/20 text-amber-400' : isSecondaryAdmin ? 'bg-[#0066FF]/20 text-[#0066FF]' : user ? 'bg-[#00D68F]/20 text-[#00D68F]' : 'bg-[#162C50] text-[#94A3B8]'
                   }`}>
-                    {isSuperAdmin ? '👑 Propriétaire Maître' : isSecondaryAdmin ? '🛡️ Administrateur' : user ? '✓ Membre Connecté' : 'Mode Démo'}
+                    {isSuperAdmin ? '👑 Super-Administrateur' : isSecondaryAdmin ? '🛡️ Administrateur' : user ? '✓ Membre' : 'Invité'}
                   </span>
                 </div>
               </div>

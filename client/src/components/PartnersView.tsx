@@ -139,20 +139,15 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode
           return (
             <div 
               key={partner.id}
-              className={`bg-[#0D1E38] border ${theme.border} rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 shadow-xl space-y-5`}
+              className={`bg-[#0D1E38] border ${theme.border} rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 shadow-xl space-y-4`}
             >
               <div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  
-                  {/* RECTANGLE HORIZONTAL AJUSTÉ AU LOGO (FINI LE LOGO QUI FLOTTE !) */}
+                {/* En-tête : Logo et Nom */}
+                <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-11 w-32 rounded-xl bg-[#081426] border border-[#162C50] flex items-center justify-center px-2 py-1.5 overflow-hidden shadow-inner shrink-0">
+                    <div className="h-11 w-28 sm:w-32 rounded-xl bg-[#081426] border border-[#162C50] flex items-center justify-center px-2 py-1 overflow-hidden shadow-inner shrink-0">
                       {partner.logoUrl ? (
-                        <img 
-                          src={partner.logoUrl} 
-                          alt={partner.name} 
-                          className="max-h-full max-w-full object-contain drop-shadow"
-                        />
+                        <img src={partner.logoUrl} alt={partner.name} className="max-h-full max-w-full object-contain" />
                       ) : (
                         <span className={`font-black text-xs tracking-wider ${theme.code}`}>
                           {partner.name.toUpperCase()}
@@ -163,24 +158,33 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode
                       <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${theme.badge}`}>
                         {partner.badge}
                       </span>
-                      <h2 className="text-lg font-black text-white mt-0.5">{partner.name}</h2>
+                      <h2 className="text-lg font-black text-white mt-1">{partner.name}</h2>
                     </div>
-                  </div>
-
-                  {/* Cotes Flashscore */}
-                  <div className="flex items-center gap-1 bg-[#081426] p-1 rounded-xl border border-[#162C50] text-[11px] font-mono shrink-0 self-start sm:self-auto">
-                    <span className="px-2 py-1 bg-[#162C50] rounded text-white font-bold">{partner.odds1}</span>
-                    <span className="px-2 py-1 bg-[#162C50] rounded text-[#94A3B8] font-bold">{partner.oddsX}</span>
-                    <span className="px-2 py-1 bg-[#162C50] rounded text-[#00D68F] font-bold">{partner.odds2}</span>
                   </div>
                 </div>
 
-                <p className="text-xs text-[#94A3B8] mt-4 font-medium leading-relaxed">
+                <p className="text-xs text-[#94A3B8] mt-3 font-medium">
                   Offre de bienvenue : <strong className="text-white">{partner.bonus}</strong>
                 </p>
+
+                {/* COTES 1X2 EN 3 COLONNES VISIBLES SUR PC ET MOBILE */}
+                <div className="grid grid-cols-3 gap-2 bg-[#081426] p-2.5 rounded-xl border border-[#162C50] text-center mt-3">
+                  <div>
+                    <span className="text-[10px] text-[#94A3B8] uppercase block font-semibold">1 (Dom)</span>
+                    <span className="text-xs font-mono font-black text-white">{partner.odds1}</span>
+                  </div>
+                  <div className="border-x border-[#162C50]">
+                    <span className="text-[10px] text-[#94A3B8] uppercase block font-semibold">Nul (X)</span>
+                    <span className="text-xs font-mono font-black text-slate-300">{partner.oddsX}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#94A3B8] uppercase block font-semibold">2 (Ext)</span>
+                    <span className={`text-xs font-mono font-black ${theme.code}`}>{partner.odds2}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 pt-1">
                 <div className="bg-[#081426] border border-[#162C50] p-3 rounded-xl flex items-center justify-between">
                   <div>
                     <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">Code Promo Officiel :</span>
@@ -206,7 +210,6 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode
                   </button>
                 </div>
 
-                {/* BOUTON OFFICIEL AUX COULEURS DE LA MARQUE */}
                 <a
                   href={partner.url}
                   target="_blank"
