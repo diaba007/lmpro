@@ -4,112 +4,95 @@ import { Gift, Copy, Check, ExternalLink, Flame } from 'lucide-react';
 export interface PartnerBookmaker {
   id: string;
   name: string;
-  logoUrl: string;
+  logoUrl?: string;
   bonusTitle: string;
   bonusHighlight: string;
   bonusSub: string;
   promoCode: string;
   url: string;
   badge: string;
-  cardBg: string;
-  buttonTextColor: string;
+  bgColor: string;       // Couleur de fond de la carte
+  btnTextColor: string;  // Couleur du texte du bouton blanc
 }
 
 export const INITIAL_PARTNERS: PartnerBookmaker[] = [
   {
     id: 'betclic',
     name: 'Betclic',
-    logoUrl: '',
     bonusTitle: 'Jusqu\'à',
     bonusHighlight: '5000 FCFA *',
     bonusSub: 'remboursés en freebets',
     promoCode: 'XPRONO',
     url: 'https://betclic.com',
     badge: 'OFFICIEL',
-    cardBg: 'bg-[#E21B23]', // Rouge vif Betclic officiel
-    buttonTextColor: 'text-[#E21B23]'
+    bgColor: '#E21B23',       // ROUGE BETCLIC
+    btnTextColor: '#E21B23'
   },
   {
     id: 'melbet',
     name: 'Melbet',
-    logoUrl: '',
     bonusTitle: 'Bonus exceptionnel de',
     bonusHighlight: '200 %',
     bonusSub: 'jusqu\'à 130 000 FCFA sur 1er dépôt',
     promoCode: 'XPRO225',
     url: 'https://melbet.com',
     badge: 'TOP BONUS AFRIQUE',
-    cardBg: 'bg-[#F3A000]', // Jaune-Oranger Melbet officiel
-    buttonTextColor: 'text-[#1A1A1A]'
+    bgColor: '#F3A000',       // JAUNE-ORANGER MELBET
+    btnTextColor: '#1A1A1A'
   },
   {
     id: 'betwinner',
     name: 'Betwinner',
-    logoUrl: '',
     bonusTitle: 'Bonus exclusif de',
     bonusHighlight: '100 %',
     bonusSub: 'sur votre premier rechargement',
     promoCode: 'DKC10',
     url: 'https://betwinner.com',
     badge: 'RECOMMANDÉ',
-    cardBg: 'bg-[#058253]', // Vert Betwinner officiel
-    buttonTextColor: 'text-[#058253]'
+    bgColor: '#058253',       // VERT BETWINNER
+    btnTextColor: '#058253'
   },
   {
     id: 'goldparis',
     name: 'Goldparis',
-    logoUrl: '',
     bonusTitle: 'Bonus spécial',
     bonusHighlight: 'VIP & Freebets',
     bonusSub: 'offerts chaque semaine pour vos mises',
     promoCode: 'LMPRO',
     url: 'https://goldparis.com',
     badge: 'EXCLUSIF CI',
-    cardBg: 'bg-[#FF6600]', // Orange Goldparis officiel
-    buttonTextColor: 'text-[#FF6600]'
+    bgColor: '#FF6600',       // ORANGE GOLDPARIS
+    btnTextColor: '#FF6600'
   }
 ];
 
 export const getPartnerTheme = (id: string) => {
   switch (id.toLowerCase()) {
     case 'melbet':
-      return {
-        code: 'text-amber-400',
-        parierBtn: 'bg-amber-400 hover:bg-yellow-400 text-black font-black'
-      };
+      return { code: 'text-amber-400', parierBtn: 'bg-amber-400 hover:bg-yellow-400 text-black font-black' };
     case 'betwinner':
-      return {
-        code: 'text-emerald-400',
-        parierBtn: 'bg-emerald-600 hover:bg-green-600 text-white font-black'
-      };
+      return { code: 'text-emerald-400', parierBtn: 'bg-emerald-600 hover:bg-green-600 text-white font-black' };
     case 'goldparis':
-      return {
-        code: 'text-orange-400',
-        parierBtn: 'bg-orange-500 hover:bg-orange-400 text-white font-black'
-      };
+      return { code: 'text-orange-400', parierBtn: 'bg-orange-500 hover:bg-orange-400 text-white font-black' };
     case 'betclic':
-      return {
-        code: 'text-red-400',
-        parierBtn: 'bg-red-600 hover:bg-rose-600 text-white font-black'
-      };
+      return { code: 'text-red-400', parierBtn: 'bg-red-600 hover:bg-rose-600 text-white font-black' };
     default:
-      return {
-        code: 'text-[#00D68F]',
-        parierBtn: 'bg-[#00D68F] text-black font-black'
-      };
+      return { code: 'text-[#00D68F]', parierBtn: 'bg-[#00D68F] text-black font-black' };
   }
 };
 
 interface PartnersViewProps {
-  partners: PartnerBookmaker[];
+  partners?: PartnerBookmaker[];
   onCopyCode: (id: string, code: string) => void;
   copiedCodeId: string | null;
 }
 
-export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode, copiedCodeId }) => {
+export const PartnersView: React.FC<PartnersViewProps> = ({ onCopyCode, copiedCodeId }) => {
+  // On utilise toujours les partenaires officiels avec leurs vraies couleurs forcées
+  const list = INITIAL_PARTNERS;
+
   return (
     <div className="space-y-6">
-      {/* En-tête */}
       <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
@@ -124,34 +107,31 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode
         </div>
       </div>
 
-      {/* Grille des Cartes (DESIGN PLEIN IDENTIQUE À VOTRE CAPTURE !) */}
+      {/* Grille des Cartes avec Couleurs Directes Forcées */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-        {partners.map((partner) => (
+        {list.map((partner) => (
           <div 
             key={partner.id}
-            className={`${partner.cardBg} rounded-2xl p-6 sm:p-7 flex flex-col justify-between shadow-2xl transition-all duration-300 hover:scale-[1.01]`}
-            style={{ minHeight: '260px' }}
+            className="rounded-2xl p-6 sm:p-7 flex flex-col justify-between shadow-2xl transition-all duration-300 hover:scale-[1.01]"
+            style={{ 
+              backgroundColor: partner.bgColor,
+              minHeight: '260px',
+              color: '#FFFFFF'
+            }}
           >
-            {/* Ligne 1 : Logo ou Nom de marque officiel en blanc */}
+            {/* Ligne 1 : Nom officiel en grand et blanc */}
             <div className="flex items-center justify-between">
-              {partner.logoUrl ? (
-                <div className="h-10 w-28 sm:w-32 bg-black/20 rounded-xl px-2 py-1 flex items-center justify-center">
-                  <img src={partner.logoUrl} alt={partner.name} className="max-h-full max-w-full object-contain" />
-                </div>
-              ) : (
-                <h2 className="text-2xl sm:text-3xl font-black italic tracking-wider text-white">
-                  {partner.name}
-                </h2>
-              )}
-
+              <h2 className="text-2xl sm:text-3xl font-black italic tracking-wider text-white drop-shadow">
+                {partner.name}
+              </h2>
               <span className="text-[10px] uppercase font-black px-2.5 py-1 rounded-full bg-black/25 text-white/90">
                 {partner.badge}
               </span>
             </div>
 
-            {/* Ligne 2 : Texte d'accroche avec le montant mis en valeur en JAUNE/OR */}
+            {/* Ligne 2 : Montant du Bonus mis en avant en jaune fluo */}
             <div className="my-5">
-              <p className="text-lg sm:text-xl font-extrabold text-white leading-tight">
+              <p className="text-lg sm:text-xl font-extrabold text-white leading-tight drop-shadow-sm">
                 {partner.bonusTitle}{' '}
                 <span className="text-yellow-300 underline decoration-2 underline-offset-4">
                   {partner.bonusHighlight}
@@ -160,9 +140,8 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode
               </p>
             </div>
 
-            {/* Ligne 3 : Code promo + Bouton blanc contrasté "Profitez du bonus" */}
+            {/* Ligne 3 : Code promo + Bouton blanc comme sur la capture */}
             <div className="space-y-2.5">
-              {/* Barre de Code Promo à copier */}
               <div className="bg-black/25 border border-white/20 rounded-xl px-3.5 py-2 flex items-center justify-between text-white">
                 <div className="text-xs">
                   <span className="text-[10px] text-white/80 uppercase font-bold block">Code Promo :</span>
@@ -173,7 +152,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode
                 <button
                   type="button"
                   onClick={() => onCopyCode(partner.id, partner.promoCode)}
-                  className="bg-white/20 hover:bg-white/30 text-white px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                  className="bg-white/25 hover:bg-white/35 text-white px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                 >
                   {copiedCodeId === partner.id ? (
                     <>
@@ -189,12 +168,13 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners, onCopyCode
                 </button>
               </div>
 
-              {/* Le bouton blanc emblématique comme sur la capture */}
+              {/* Bouton Blanc Officiel avec texte aux couleurs du bookmaker */}
               <a
                 href={partner.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`w-full py-3 sm:py-3.5 bg-white ${partner.buttonTextColor} font-black text-sm rounded-xl flex items-center justify-center gap-2 shadow-xl hover:bg-slate-100 transition-all cursor-pointer`}
+                className="w-full py-3 sm:py-3.5 bg-white font-black text-sm rounded-xl flex items-center justify-center gap-2 shadow-2xl hover:bg-slate-100 transition-all cursor-pointer"
+                style={{ color: partner.btnTextColor }}
               >
                 <span>Profitez du bonus</span>
                 <ExternalLink size={15} />
