@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { History, Filter, Check, X } from 'lucide-react';
+import { History, Filter, Check, X, ShieldAlert } from 'lucide-react';
 
 export interface PredictionHistoryRecord {
   id: string;
@@ -12,22 +12,14 @@ export interface PredictionHistoryRecord {
   status: 'WON' | 'LOST' | 'PENDING';
 }
 
-// EXPORTATION EXPLICITE POUR APP.TSX
-export const INITIAL_HISTORY: PredictionHistoryRecord[] = [
-  { id: '1', date: '28/10/2026', match: 'AC Milan vs Bologna FC', competition: 'Serie A', selection: 'Victoire Milan (1)', predictedOdds: '1.68', finalScore: '2 - 0', status: 'WON' },
-  { id: '2', date: '28/10/2026', match: 'Venezia vs Inter Milan', competition: 'Serie A', selection: 'Victoire Inter (2)', predictedOdds: '1.48', finalScore: '0 - 2', status: 'WON' },
-  { id: '3', date: '28/10/2026', match: 'Genoa vs Juventus', competition: 'Serie A', selection: 'Moins de 2.5 buts', predictedOdds: '1.65', finalScore: '1 - 0', status: 'WON' },
-  { id: '4', date: '27/10/2026', match: 'Arsenal FC vs Chelsea FC', competition: 'Premier League', selection: 'Plus de 2.5 buts', predictedOdds: '1.80', finalScore: '3 - 1', status: 'WON' },
-  { id: '5', date: '26/10/2026', match: 'Real Madrid vs Athletic Club', competition: 'La Liga', selection: 'Victoire Real Madrid (1)', predictedOdds: '1.45', finalScore: '2 - 0', status: 'WON' },
-  { id: '6', date: '25/10/2026', match: 'Juventus vs AC Milan', competition: 'Serie A', selection: 'BTTS - Les deux marquent', predictedOdds: '1.90', finalScore: '0 - 0', status: 'LOST' },
-  { id: '7', date: '24/10/2026', match: 'PSG vs Marseille', competition: 'Ligue 1', selection: 'Plus de 2.5 buts', predictedOdds: '1.60', finalScore: '3 - 1', status: 'WON' },
-];
+// HISTORIQUE RÉEL : DÉMARRE PROPRE (AUCUN FAUX MATCH INVENTÉ)
+export const INITIAL_HISTORY: PredictionHistoryRecord[] = [];
 
 interface HistoryViewProps {
   records?: PredictionHistoryRecord[];
 }
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ records = INITIAL_HISTORY }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ records = [] }) => {
   const [filter, setFilter] = useState<'ALL' | 'WON' | 'LOST'>('ALL');
 
   const evaluated = records.filter(r => r.status === 'WON' || r.status === 'LOST');
@@ -44,7 +36,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ records = INITIAL_HIST
             <History className="text-[#00D68F]" /> Registre d'Audit & Historique Certifié
           </h1>
           <p className="text-xs text-[#94A3B8] mt-1">
-            Prédictions enregistrées avant coup d'envoi. Traçabilité publique et immuable.
+            Traçabilité des prédictions enregistrées avant coup d'envoi. Aucun faux résultat toléré.
           </p>
         </div>
 
@@ -55,79 +47,93 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ records = INITIAL_HIST
         </div>
       </div>
 
-      <div className="flex justify-between items-center bg-[#0D1E38] p-3 rounded-xl border border-[#162C50]">
-        <div className="flex items-center gap-2 text-xs">
-          <Filter size={14} className="text-[#0066FF]" />
-          <span className="text-[#94A3B8] font-bold">Filtrer :</span>
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => setFilter('ALL')}
-              className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors ${
-                filter === 'ALL' ? 'bg-[#0066FF] text-white' : 'bg-[#081426] text-[#94A3B8] hover:text-white'
-              }`}
-            >
-              Tous ({records.length})
-            </button>
-            <button
-              onClick={() => setFilter('WON')}
-              className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors ${
-                filter === 'WON' ? 'bg-[#00D68F] text-black' : 'bg-[#081426] text-[#94A3B8] hover:text-white'
-              }`}
-            >
-              Validés ({records.filter(r => r.status === 'WON').length})
-            </button>
-            <button
-              onClick={() => setFilter('LOST')}
-              className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors ${
-                filter === 'LOST' ? 'bg-rose-500 text-white' : 'bg-[#081426] text-[#94A3B8] hover:text-white'
-              }`}
-            >
-              Échoués ({records.filter(r => r.status === 'LOST').length})
-            </button>
+      {records.length === 0 ? (
+        <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-12 text-center max-w-lg mx-auto my-6 space-y-3">
+          <div className="w-12 h-12 rounded-full bg-[#081426] border border-[#162C50] flex items-center justify-center mx-auto text-[#00D68F]">
+            <History size={24} />
           </div>
+          <h2 className="text-base font-bold text-white">Aucun historique archivé pour le moment</h2>
+          <p className="text-xs text-[#94A3B8] leading-relaxed">
+            Conformément à notre charte de transparence, LMPRO n'affiche aucun faux résultat. Dès que les premiers matchs programmés seront terminés, leurs résultats officiels seront audités et certifiés ici.
+          </p>
         </div>
-        <span className="text-xs text-[#94A3B8] font-mono">{filtered.length} enregistrement(s)</span>
-      </div>
+      ) : (
+        <>
+          <div className="flex justify-between items-center bg-[#0D1E38] p-3 rounded-xl border border-[#162C50]">
+            <div className="flex items-center gap-2 text-xs">
+              <Filter size={14} className="text-[#0066FF]" />
+              <span className="text-[#94A3B8] font-bold">Filtrer :</span>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setFilter('ALL')}
+                  className={`px-3 py-1 rounded-lg font-bold text-xs cursor-pointer transition-colors ${
+                    filter === 'ALL' ? 'bg-[#0066FF] text-white' : 'bg-[#081426] text-[#94A3B8] hover:text-white'
+                  }`}
+                >
+                  Tous ({records.length})
+                </button>
+                <button
+                  onClick={() => setFilter('WON')}
+                  className={`px-3 py-1 rounded-lg font-bold text-xs cursor-pointer transition-colors ${
+                    filter === 'WON' ? 'bg-[#00D68F] text-black' : 'bg-[#081426] text-[#94A3B8] hover:text-white'
+                  }`}
+                >
+                  Validés ({records.filter(r => r.status === 'WON').length})
+                </button>
+                <button
+                  onClick={() => setFilter('LOST')}
+                  className={`px-3 py-1 rounded-lg font-bold text-xs cursor-pointer transition-colors ${
+                    filter === 'LOST' ? 'bg-rose-500 text-white' : 'bg-[#081426] text-[#94A3B8] hover:text-white'
+                  }`}
+                >
+                  Échoués ({records.filter(r => r.status === 'LOST').length})
+                </button>
+              </div>
+            </div>
+            <span className="text-xs text-[#94A3B8] font-mono">{filtered.length} enregistrement(s)</span>
+          </div>
 
-      <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl overflow-x-auto shadow-xl">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-[#081426] text-[#94A3B8] uppercase font-bold text-[10px] border-b border-[#162C50]">
-            <tr>
-              <th className="p-4">Date</th>
-              <th className="p-4">Match Officiel</th>
-              <th className="p-4">Sélection Calculée</th>
-              <th className="p-4 text-center">Score Final</th>
-              <th className="p-4 text-center">Cote Estimée</th>
-              <th className="p-4 text-right">Statut</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#162C50] text-slate-300">
-            {filtered.map((row) => (
-              <tr key={row.id} className="hover:bg-[#081426]/50 transition-colors">
-                <td className="p-4 font-mono text-[#94A3B8]">{row.date}</td>
-                <td className="p-4">
-                  <span className="font-bold text-white block">{row.match}</span>
-                  <span className="text-[10px] text-[#94A3B8]">{row.competition}</span>
-                </td>
-                <td className="p-4 font-semibold text-white">{row.selection}</td>
-                <td className="p-4 text-center font-mono font-bold text-white">{row.finalScore}</td>
-                <td className="p-4 text-center font-mono text-white">{row.predictedOdds}</td>
-                <td className="p-4 text-right">
-                  {row.status === 'WON' ? (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#00D68F]/15 text-[#00D68F] font-bold text-xs">
-                      <Check size={12} /> Validé
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-500/15 text-rose-400 font-bold text-xs">
-                      <X size={12} /> Échoué
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl overflow-x-auto shadow-xl">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#081426] text-[#94A3B8] uppercase font-bold text-[10px] border-b border-[#162C50]">
+                <tr>
+                  <th className="p-4">Date</th>
+                  <th className="p-4">Match Officiel</th>
+                  <th className="p-4">Sélection Calculée</th>
+                  <th className="p-4 text-center">Score Final</th>
+                  <th className="p-4 text-center">Cote Estimée</th>
+                  <th className="p-4 text-right">Statut</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#162C50] text-slate-300">
+                {filtered.map((row) => (
+                  <tr key={row.id} className="hover:bg-[#081426]/50 transition-colors">
+                    <td className="p-4 font-mono text-[#94A3B8]">{row.date}</td>
+                    <td className="p-4">
+                      <span className="font-bold text-white block">{row.match}</span>
+                      <span className="text-[10px] text-[#94A3B8]">{row.competition}</span>
+                    </td>
+                    <td className="p-4 font-semibold text-white">{row.selection}</td>
+                    <td className="p-4 text-center font-mono font-bold text-white">{row.finalScore}</td>
+                    <td className="p-4 text-center font-mono text-white">{row.predictedOdds}</td>
+                    <td className="p-4 text-right">
+                      {row.status === 'WON' ? (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#00D68F]/15 text-[#00D68F] font-bold text-xs">
+                          <Check size={12} /> Validé
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-500/15 text-rose-400 font-bold text-xs">
+                          <X size={12} /> Échoué
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 };
