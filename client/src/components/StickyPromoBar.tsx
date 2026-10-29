@@ -51,7 +51,7 @@ export const StickyPromoBar: React.FC<StickyPromoBarProps> = ({
         {/* Goldparis */}
         <div className="flex items-center gap-1.5 bg-[#0D1E38] border border-orange-500/40 px-2.5 py-1 rounded-lg">
           <span className="text-[11px] font-bold text-orange-400">Goldparis:</span>
-          <span className="text-xs font-mono font-black text-white">X</span>
+          <span className="text-xs font-mono font-black text-white">XPRO225</span>
           <button
             onClick={() => onCopyCode('goldparis-sticky', 'XPRO225')}
             className="text-[#94A3B8] hover:text-white p-0.5"
