@@ -81,7 +81,9 @@ export interface Match {
 }
 
 const LEAGUES_LIST = [
-  { code: 'ALL', name: 'Tous les Championnats', flag: '🌍' },
+  { code: 'ALL', name: 'Toutes les Compétitions', flag: '🌍' },
+  { code: 'CAF', name: 'Afrique & CAF', flag: '🌍' },
+  { code: 'CUP', name: 'Coupes Nationales', flag: '🏆' },
   { code: 'SA', name: 'Serie A', flag: '🇮🇹' },
   { code: 'PL', name: 'Premier League', flag: '🇬🇧' },
   { code: 'PD', name: 'La Liga', flag: '🇪🇸' },
