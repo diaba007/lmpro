@@ -9,7 +9,8 @@ import {
   Upload, 
   PlusCircle, 
   Trash2, 
-  UserPlus 
+  UserPlus,
+  Settings
 } from 'lucide-react';
 import { getPartnerTheme } from './PartnersView';
 
@@ -54,6 +55,10 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
   const [delName, setDelName] = useState('');
   const [delEmail, setDelEmail] = useState('');
 
+  // Gestion des modifications de codes promo et liens partenaires
+  const [partnerCodes, setPartnerCodes] = useState<Record<string, string>>({});
+  const [partnerUrls, setPartnerUrls] = useState<Record<string, string>>({});
+
   const submitLogin = (e: React.FormEvent) => {
     e.preventDefault();
     props.onAdminLogin(adminUser, adminPass);
@@ -76,6 +81,14 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
     setHome('');
     setAway('');
     setComment('');
+  };
+
+  const submitAddAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!delName.trim() || !delEmail.trim()) return;
+    props.onAddAdmin(delName.trim(), delEmail.trim());
+    setDelName('');
+    setDelEmail('');
   };
 
   if (!props.isAdminAuthenticated) {
@@ -121,7 +134,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
           </div>
           <button
             type="submit"
-            className="w-full py-3 bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black text-xs rounded-xl shadow-lg"
+            className="w-full py-3 bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black text-xs rounded-xl shadow-lg cursor-pointer hover:opacity-95 transition-all"
           >
             Déverrouiller la Console
           </button>
@@ -130,7 +143,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
         <button
           type="button"
           onClick={() => { setAdminUser('christian'); setAdminPass('LMPRO2026'); }}
-          className="text-[11px] text-[#94A3B8] hover:text-amber-400 underline block mx-auto text-center"
+          className="text-[11px] text-[#94A3B8] hover:text-amber-400 underline block mx-auto text-center cursor-pointer"
         >
           Pré-remplir les identifiants par défaut (christian / LMPRO2026)
         </button>
@@ -152,22 +165,153 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
           <h1 className="text-2xl font-black text-white flex items-center gap-2">
             <Crown className="text-amber-400" /> Console d'Administration Maître
           </h1>
-          <p className="text-xs text-[#94A3B8] mt-1">Super-Admin : Christian Diabagate</p>
+          <p className="text-xs text-[#94A3B8] mt-1">Super-Admin Propriétaire : Christian Diabagate</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={props.onSyncApi} className="bg-[#0066FF] hover:bg-[#0052CC] text-white px-4 py-2 rounded-xl text-xs font-bold">
+          <button onClick={props.onSyncApi} className="bg-[#0066FF] hover:bg-[#0052CC] text-white px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all">
             🔄 Synchroniser API
           </button>
-          <button onClick={props.onPurgeCache} className="bg-[#081426] border border-[#162C50] hover:bg-[#162C50] text-[#94A3B8] hover:text-white px-4 py-2 rounded-xl text-xs font-bold">
+          <button onClick={props.onPurgeCache} className="bg-[#081426] border border-[#162C50] hover:bg-[#162C50] text-[#94A3B8] hover:text-white px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all">
             🧹 Purger Cache
           </button>
-          <button onClick={props.onAdminLock} className="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-4 py-2 rounded-xl text-xs font-bold">
+          <button onClick={props.onAdminLock} className="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer hover:bg-rose-500 hover:text-white transition-all">
             <Lock size={14} className="inline mr-1" /> Verrouiller
           </button>
         </div>
       </div>
 
-      {/* Formulaire Match Manuel */}
+      {/* 1. GESTION DES CODES PROMO & LIENS BOOKMAKERS */}
+      <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
+        <h3 className="text-base font-bold text-white flex items-center gap-2">
+          <Settings size={18} className="text-amber-400" /> Modification des Codes Promo & Liens Bookmakers
+        </h3>
+        <p className="text-xs text-[#94A3B8]">
+          Changez vos codes d'affiliation et vos liens de parrainage pour chaque bookmaker.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          {props.partners.map((p) => {
+            const currentCode = partnerCodes[p.id] !== undefined ? partnerCodes[p.id] : p.promoCode;
+            const currentUrl = partnerUrls[p.id] !== undefined ? partnerUrls[p.id] : p.url;
+
+            return (
+              <div key={p.id} className="bg-[#081426] border border-[#162C50] p-4 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-white text-sm">{p.name}</span>
+                  <span className="text-[10px] bg-[#162C50] text-[#00D68F] font-mono px-2 py-0.5 rounded font-bold">Actif</span>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-[#94A3B8] uppercase font-bold block mb-1">Code Promo :</label>
+                  <input
+                    type="text"
+                    value={currentCode}
+                    onChange={(e) => setPartnerCodes({ ...partnerCodes, [p.id]: e.target.value })}
+                    className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1.5 text-xs text-[#00D68F] font-mono font-bold outline-none focus:border-[#0066FF]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-[#94A3B8] uppercase font-bold block mb-1">Lien d'Affiliation :</label>
+                  <input
+                    type="text"
+                    value={currentUrl}
+                    onChange={(e) => setPartnerUrls({ ...partnerUrls, [p.id]: e.target.value })}
+                    className="w-full bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-[#0066FF]"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => props.onUpdatePartner(p.id, currentCode, currentUrl)}
+                  className="w-full py-2 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-lg text-xs font-bold cursor-pointer transition-all shadow-md shadow-[#0066FF]/20"
+                >
+                  Enregistrer {p.name}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 2. GESTION DES COLLABORATEURS (DÉLÉGUÉS) */}
+      <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <UserPlus size={18} className="text-[#00D68F]" /> Gestion des Collaborateurs & Délégués
+            </h3>
+            <p className="text-xs text-[#94A3B8]">
+              Donnez accès à d'autres administrateurs sans leur partager votre mot de passe maître.
+            </p>
+          </div>
+          <span className="text-xs text-[#94A3B8] font-mono">{props.adminTeam.length} délégué(s)</span>
+        </div>
+
+        {/* Formulaire ajout délégué */}
+        <form onSubmit={submitAddAdmin} className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#081426] p-4 rounded-xl border border-[#162C50]">
+          <input
+            type="text"
+            required
+            value={delName}
+            onChange={(e) => setDelName(e.target.value)}
+            placeholder="Nom du collaborateur"
+            className="bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#0066FF]"
+          />
+          <input
+            type="email"
+            required
+            value={delEmail}
+            onChange={(e) => setDelEmail(e.target.value)}
+            placeholder="Email du collaborateur"
+            className="bg-[#0D1E38] border border-[#162C50] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#0066FF]"
+          />
+          <button
+            type="submit"
+            className="bg-[#00D68F] hover:bg-[#00b377] text-black font-bold text-xs py-2 rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+          >
+            <UserPlus size={14} /> Ajouter Collaborateur
+          </button>
+        </form>
+
+        {/* Liste des collaborateurs */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-[#162C50] text-[#94A3B8] font-semibold">
+                <th className="pb-3">Nom</th>
+                <th className="pb-3">Email</th>
+                <th className="pb-3">Rôle</th>
+                <th className="pb-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#162C50] text-slate-300">
+              <tr className="hover:bg-[#081426]/50">
+                <td className="py-3 font-bold text-white flex items-center gap-1.5">
+                  <Crown size={14} className="text-amber-400" /> Christian Diabagate
+                </td>
+                <td className="py-3 font-mono text-[#94A3B8]">Propriétaire Maître</td>
+                <td className="py-3"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-400">SUPER_ADMIN</span></td>
+                <td className="py-3 text-right italic text-[11px] text-[#94A3B8]">Inamovible</td>
+              </tr>
+              {props.adminTeam.map((m) => (
+                <tr key={m.id} className="hover:bg-[#081426]/50">
+                  <td className="py-3 font-bold text-white">{m.name}</td>
+                  <td className="py-3 font-mono text-[#94A3B8]">{m.email}</td>
+                  <td className="py-3"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#0066FF]/20 text-[#0066FF]">Délégué</span></td>
+                  <td className="py-3 text-right">
+                    <button onClick={() => props.onRemoveAdmin(m.id, m.name)} className="text-rose-400 hover:text-rose-300 p-1 cursor-pointer" title="Révoquer">
+                      <Trash2 size={15} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 3. PUBLIER UN MATCH MANUEL QUAND L'API EST VIDE */}
       <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
         <h2 className="text-base font-bold text-white flex items-center gap-2">
           <PlusCircle size={18} className="text-[#00D68F]" /> Publier un Match avec votre Analyse Personnalisée
@@ -183,7 +327,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
                 value={home}
                 onChange={(e) => setHome(e.target.value)}
                 placeholder="Ex: Real Madrid"
-                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white"
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#0066FF]"
               />
             </div>
             <div>
@@ -194,7 +338,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
                 value={away}
                 onChange={(e) => setAway(e.target.value)}
                 placeholder="Ex: Barcelone"
-                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white"
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#0066FF]"
               />
             </div>
             <div>
@@ -202,7 +346,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
               <select
                 value={comp}
                 onChange={(e) => setComp(e.target.value)}
-                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white"
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#0066FF]"
               >
                 <option value="Serie A">Serie A</option>
                 <option value="Premier League">Premier League</option>
@@ -247,7 +391,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
             />
           </div>
 
-          <button type="submit" className="w-full py-3 bg-[#00D68F] hover:bg-[#00b377] text-black font-black text-xs rounded-xl shadow-lg">
+          <button type="submit" className="w-full py-3 bg-[#00D68F] hover:bg-[#00b377] text-black font-black text-xs rounded-xl shadow-lg cursor-pointer transition-all">
             Publier ce Match
           </button>
         </form>
@@ -258,14 +402,14 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
             {props.manualMatches.map((m) => (
               <div key={m.id} className="p-3 bg-[#081426] rounded-xl border border-[#162C50] flex items-center justify-between text-xs">
                 <span><strong>{m.homeTeam.name} vs {m.awayTeam.name}</strong> ({m.competition.name})</span>
-                <button onClick={() => props.onDeleteManualMatch(m.id)} className="text-rose-400 p-1"><Trash2 size={15} /></button>
+                <button onClick={() => props.onDeleteManualMatch(m.id)} className="text-rose-400 p-1 cursor-pointer"><Trash2 size={15} /></button>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Upload Logos Bookmakers */}
+      {/* 4. IMPORTATION DES LOGOS DEPUIS LA MACHINE */}
       <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
         <h3 className="text-base font-bold text-white flex items-center gap-2">
           <FolderOpen size={18} className="text-[#00D68F]" /> Importer vos Logos depuis votre Ordinateur
@@ -295,6 +439,25 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
             );
           })}
         </div>
+      </div>
+
+      {/* 5. MODIFIER LE MOT DE PASSE SECRET */}
+      <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-3">
+        <h3 className="text-base font-bold text-white flex items-center gap-2">
+          <Key size={18} className="text-amber-400" /> Modifier votre Mot de Passe Administrateur Secret
+        </h3>
+        <form onSubmit={(e) => { e.preventDefault(); if (newMasterPass) { props.onChangeMasterPassword(newMasterPass); setNewMasterPass(''); } }} className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="password"
+            placeholder="Nouveau mot de passe maître"
+            value={newMasterPass}
+            onChange={(e) => setNewMasterPass(e.target.value)}
+            className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-amber-400"
+          />
+          <button type="submit" className="bg-amber-400 hover:bg-yellow-400 text-black font-black text-xs px-5 py-2.5 rounded-xl cursor-pointer">
+            Enregistrer
+          </button>
+        </form>
       </div>
     </div>
   );

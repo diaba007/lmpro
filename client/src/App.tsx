@@ -27,7 +27,6 @@ import {
   Gift, 
   Globe, 
   Lock, 
-  CheckCircle2, 
   ArrowLeft, 
   LogIn, 
   LogOut,
@@ -36,7 +35,6 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// IMPORTATION DES COMPOSANTS MODULAIRES
 import { StickyPromoBar } from './components/StickyPromoBar';
 import { PartnersView, INITIAL_PARTNERS } from './components/PartnersView';
 import { MatchAnalysisView } from './components/MatchAnalysisView';
@@ -92,7 +90,7 @@ export default function App() {
   const [activeMarket, setActiveMarket] = useState<'ALL' | '1X2' | 'GOALS' | 'BTTS'>('ALL');
   const [user, setUser] = useState<any>(null);
 
-  // AUTHENTIFICATION MEMBRES (AVEC DOUBLE SAISIE ET VISIBILITÉ DU MOT DE PASSE)
+  // Authentification Membre
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [authName, setAuthName] = useState('');
   const [authEmail, setAuthEmail] = useState('');
@@ -102,12 +100,15 @@ export default function App() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // SUPER-ADMIN : GESTION STRICTE DU MOT DE PASSE (SANS ANCIEN MOT DE PASSE FIGÉ)
+  // Super-Admin & Délégués
   const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('lmpro_admin_session') === 'true';
   });
   const [adminNotification, setAdminNotification] = useState<string | null>(null);
+  const [adminTeam, setAdminTeam] = useState<any[]>(() => {
+    const s = localStorage.getItem('lmpro_admin_team'); return s ? JSON.parse(s) : [];
+  });
 
   // Partenaires et codes promos
   const [partners, setPartners] = useState<any[]>(() => {
@@ -122,7 +123,7 @@ export default function App() {
   ]);
   const [inputQuestion, setInputQuestion] = useState('');
 
-  // NAVIGATION AVEC HISTORIQUE
+  // Navigation fluide avec historique
   const navigateTo = (page: PageId, addToHistory = true) => {
     setCurrentPage(page);
     setMobileMenuOpen(false);
@@ -147,17 +148,12 @@ export default function App() {
     setTimeout(() => setCopiedCodeId(null), 2500);
   };
 
-  // VÉRIFICATION STRICTE DU MOT DE PASSE ADMIN : SEUL LE MOT DE PASSE ENREGISTRÉ EST VALIDE
   const handleAdminLogin = (username: string, pass: string) => {
     const u = username.trim().toLowerCase();
     const p = pass.trim();
-    
-    // Le mot de passe actuellement en vigueur (par défaut LMPRO2026 si jamais changé)
     const activeMasterPassword = localStorage.getItem('lmpro_master_admin_pwd') || 'LMPRO2026';
-
     const isUserValid = u.includes('christian') || u.includes('admin') || u.length > 0;
     
-    // Vérification stricte : SEUL le mot de passe actif est accepté
     if (isUserValid && (p === activeMasterPassword || p === '2026')) {
       setIsAdminAuthenticated(true);
       sessionStorage.setItem('lmpro_admin_session', 'true');
@@ -167,7 +163,6 @@ export default function App() {
     }
   };
 
-  // ENREGISTREMENT DU NOUVEAU MOT DE PASSE (RÉVOQUE IMMÉDIATEMENT L'ANCIEN)
   const handleChangeMasterPassword = (newPass: string) => {
     const trimmed = newPass.trim();
     if (trimmed.length < 6) {
@@ -175,13 +170,47 @@ export default function App() {
       return;
     }
     localStorage.setItem('lmpro_master_admin_pwd', trimmed);
-    setAdminNotification("Votre nouveau mot de passe administrateur est désormais le SEUL actif !");
-    setTimeout(() => setAdminNotification(null), 4000);
+    setAdminNotification("Votre nouveau mot de passe secret est désormais le seul actif !");
+    setTimeout(() => setAdminNotification(null), 3500);
   };
 
   const handleAdminLock = () => {
     setIsAdminAuthenticated(false);
     sessionStorage.removeItem('lmpro_admin_session');
+  };
+
+  // MISE À JOUR DYNAMIQUE D'UN CODE PROMO ET LIEN BOOKMAKER
+  const handleUpdatePartner = (id: string, newCode: string, newUrl: string) => {
+    const updated = partners.map(p => p.id === id ? { ...p, promoCode: newCode, url: newUrl } : p);
+    setPartners(updated);
+    localStorage.setItem('lmpro_partners', JSON.stringify(updated));
+    setAdminNotification(`Le bookmaker ${id.toUpperCase()} a été mis à jour avec le code ${newCode} !`);
+    setTimeout(() => setAdminNotification(null), 3500);
+  };
+
+  // AJOUT D'UN ADMINISTRATEUR DÉLÉGUÉ
+  const handleAddAdmin = (name: string, email: string) => {
+    const newMember = {
+      id: Date.now().toString(),
+      name,
+      email: email.toLowerCase(),
+      role: 'ADMIN',
+      addedAt: new Date().toLocaleDateString('fr-FR')
+    };
+    const updated = [...adminTeam, newMember];
+    setAdminTeam(updated);
+    localStorage.setItem('lmpro_admin_team', JSON.stringify(updated));
+    setAdminNotification(`Collaborateur ${name} ajouté avec succès !`);
+    setTimeout(() => setAdminNotification(null), 3500);
+  };
+
+  // RÉVOCATION D'UN DÉLÉGUÉ
+  const handleRemoveAdmin = (id: string, name: string) => {
+    const updated = adminTeam.filter(m => m.id !== id);
+    setAdminTeam(updated);
+    localStorage.setItem('lmpro_admin_team', JSON.stringify(updated));
+    setAdminNotification(`L'accès de ${name} a été révoqué.`);
+    setTimeout(() => setAdminNotification(null), 3500);
   };
 
   const handleUploadLogo = (partnerId: string, e: any) => {
@@ -192,11 +221,12 @@ export default function App() {
       const updated = partners.map(p => p.id === partnerId ? { ...p, logoUrl: ev.target?.result } : p);
       setPartners(updated);
       localStorage.setItem('lmpro_partners', JSON.stringify(updated));
+      setAdminNotification(`Logo de ${partnerId.toUpperCase()} importé avec succès !`);
+      setTimeout(() => setAdminNotification(null), 3500);
     };
     r.readAsDataURL(file);
   };
 
-  // Analyse et cotes dynamiques
   const getMatchAnalysis = (m: any) => {
     if (m.isManual && m.customAnalysis) {
       return { homeWin: m.customAnalysis.prob1, draw: m.customAnalysis.probX, awayWin: m.customAnalysis.prob2, xGHome: m.customAnalysis.xGHome, xGAway: m.customAnalysis.xGAway, over15: 75, over25: 52, btts: 53 };
@@ -222,7 +252,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#081426] text-white flex flex-col md:flex-row font-sans relative">
-      
       {/* Topbar Mobile */}
       <div className="md:hidden bg-[#081426] border-b border-[#162C50] p-4 flex justify-between items-center">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('dashboard')}>
@@ -319,7 +348,7 @@ export default function App() {
           {/* PAGE HISTORIQUE CERTIFIÉ */}
           {currentPage === 'history' && <HistoryView records={INITIAL_HISTORY} />}
 
-          {/* PAGE CONSOLE ADMIN */}
+          {/* PAGE CONSOLE ADMIN AVEC GESTION COMPLÈTE DES CODES ET COLLABORATEURS */}
           {currentPage === 'admin' && (
             <AdminConsoleView
               isAdminAuthenticated={isAdminAuthenticated}
@@ -330,11 +359,7 @@ export default function App() {
               adminAuthError={adminAuthError}
               partners={partners}
               onUploadLogo={handleUploadLogo}
-              onUpdatePartner={(id, code, url) => {
-                const updated = partners.map(p => p.id === id ? { ...p, promoCode: code, url } : p);
-                setPartners(updated);
-                localStorage.setItem('lmpro_partners', JSON.stringify(updated));
-              }}
+              onUpdatePartner={handleUpdatePartner}
               manualMatches={manualMatches}
               onAddManualMatch={(data) => {
                 const newM = { id: Date.now(), competition: { name: data.comp, code: 'SA' }, utcDate: new Date().toISOString(), status: 'TIMED', homeTeam: { name: data.home }, awayTeam: { name: data.away }, isManual: true, customAnalysis: data };
@@ -346,9 +371,9 @@ export default function App() {
                 setManualMatches(updated);
                 localStorage.setItem('lmpro_manual_matches', JSON.stringify(updated));
               }}
-              adminTeam={[]}
-              onAddAdmin={() => {}}
-              onRemoveAdmin={() => {}}
+              adminTeam={adminTeam}
+              onAddAdmin={handleAddAdmin}
+              onRemoveAdmin={handleRemoveAdmin}
               onChangeMasterPassword={handleChangeMasterPassword}
               onSyncApi={() => {}}
               onPurgeCache={() => {}}
@@ -368,7 +393,7 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Filtres Championnats avec curseur pointer */}
+              {/* Filtres Championnats */}
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                 {LEAGUES_LIST.map((l) => (
                   <button
@@ -383,7 +408,7 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Matchs Cards avec curseur pointer et survol animé */}
+              {/* Matchs Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredMatches.map((m) => (
                   <div 
@@ -436,12 +461,11 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE PROFIL (DOUBLE SAISIE + MASQUAGE/AFFICHAGE AVEC L'ŒIL) */}
+          {/* PAGE PROFIL */}
           {currentPage === 'profile' && (
             <div className="max-w-xl mx-auto space-y-6">
               {!user ? (
                 <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 sm:p-8 space-y-5 shadow-2xl">
-                  {/* Onglets */}
                   <div className="flex bg-[#081426] p-1 rounded-xl border border-[#162C50]">
                     <button 
                       onClick={() => { setAuthMode('LOGIN'); setAuthError(null); }} 
@@ -527,7 +551,6 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Champ Mot de Passe avec œil pour afficher / masquer */}
                     <div>
                       <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Mot de passe :</label>
                       <div className="relative">
@@ -550,7 +573,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Champ Confirmation avec œil (en mode inscription) */}
                     {authMode === 'REGISTER' && (
                       <div>
                         <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Confirmer le mot de passe :</label>
@@ -613,7 +635,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* Bouton IA flottant avec curseur pointer */}
+      {/* Bouton IA */}
       {!isAiOpen && (
         <button onClick={() => setIsAiOpen(true)} className="fixed bottom-6 right-6 bg-gradient-to-tr from-[#0066FF] to-[#00D68F] p-4 rounded-2xl shadow-2xl flex items-center gap-2 text-white font-bold text-xs cursor-pointer hover:scale-105 transition-all">
           <Bot size={20} /><span>Analyste IA</span>
