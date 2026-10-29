@@ -11,8 +11,8 @@ export interface PartnerBookmaker {
   promoCode: string;
   url: string;
   badge: string;
-  bgColor: string;       // Couleur de fond de la carte
-  btnTextColor: string;  // Couleur du texte du bouton blanc
+  bgColor: string;
+  btnTextColor: string;
 }
 
 export const INITIAL_PARTNERS: PartnerBookmaker[] = [
@@ -53,15 +53,15 @@ export const INITIAL_PARTNERS: PartnerBookmaker[] = [
     btnTextColor: '#058253'
   },
   {
-    id: 'goldparis',
-    name: 'Goldparis',
+    id: 'goldpari',
+    name: 'Goldpari',         // GOLDPARI SANS S
     bonusTitle: 'Bonus spécial',
     bonusHighlight: 'VIP & Freebets',
     bonusSub: 'offerts chaque semaine pour vos mises',
-    promoCode: 'LMPRO',
-    url: 'https://goldparis.com',
+    promoCode: 'XPRO225',     // CODE XPRO225
+    url: 'https://goldpari.com',
     badge: 'EXCLUSIF CI',
-    bgColor: '#FF6600',       // ORANGE GOLDPARIS
+    bgColor: '#FF6600',       // ORANGE GOLDPARI
     btnTextColor: '#FF6600'
   }
 ];
@@ -72,6 +72,7 @@ export const getPartnerTheme = (id: string) => {
       return { code: 'text-amber-400', parierBtn: 'bg-amber-400 hover:bg-yellow-400 text-black font-black' };
     case 'betwinner':
       return { code: 'text-emerald-400', parierBtn: 'bg-emerald-600 hover:bg-green-600 text-white font-black' };
+    case 'goldpari':
     case 'goldparis':
       return { code: 'text-orange-400', parierBtn: 'bg-orange-500 hover:bg-orange-400 text-white font-black' };
     case 'betclic':
@@ -88,7 +89,6 @@ interface PartnersViewProps {
 }
 
 export const PartnersView: React.FC<PartnersViewProps> = ({ onCopyCode, copiedCodeId }) => {
-  // On utilise toujours les partenaires officiels avec leurs vraies couleurs forcées
   const list = INITIAL_PARTNERS;
 
   return (
@@ -107,7 +107,6 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ onCopyCode, copiedCo
         </div>
       </div>
 
-      {/* Grille des Cartes avec Couleurs Directes Forcées */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
         {list.map((partner) => (
           <div 
@@ -140,7 +139,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ onCopyCode, copiedCo
               </p>
             </div>
 
-            {/* Ligne 3 : Code promo + Bouton blanc comme sur la capture */}
+            {/* Ligne 3 : Code promo + Bouton blanc */}
             <div className="space-y-2.5">
               <div className="bg-black/25 border border-white/20 rounded-xl px-3.5 py-2 flex items-center justify-between text-white">
                 <div className="text-xs">
@@ -168,7 +167,6 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ onCopyCode, copiedCo
                 </button>
               </div>
 
-              {/* Bouton Blanc Officiel avec texte aux couleurs du bookmaker */}
               <a
                 href={partner.url}
                 target="_blank"

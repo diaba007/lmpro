@@ -23,7 +23,7 @@ export const StickyPromoBar: React.FC<StickyPromoBarProps> = ({
         </span>
       </div>
 
-      {/* Les 4 Pastilles aux vraies couleurs de marque forcées */}
+      {/* Les 4 Pastilles aux vraies couleurs de marque */}
       <div className="flex items-center gap-2.5 shrink-0">
         
         {/* 🔴 Betclic (Rouge #E21B23) */}
@@ -77,24 +77,24 @@ export const StickyPromoBar: React.FC<StickyPromoBarProps> = ({
           </button>
         </div>
 
-        {/* 🟠 Goldparis (Orange #FF6600) */}
+        {/* 🟠 Goldpari (Orange #FF6600 - Code XPRO225) */}
         <div 
           className="flex items-center gap-1.5 px-3 py-1 rounded-lg shadow-md font-bold text-xs text-white"
           style={{ backgroundColor: '#FF6600' }}
         >
-          <span className="font-black">Goldparis:</span>
-          <span className="font-mono font-black bg-black/25 px-1.5 py-0.5 rounded text-white">LMPRO</span>
+          <span className="font-black">Goldpari:</span>
+          <span className="font-mono font-black bg-black/25 px-1.5 py-0.5 rounded text-white">XPRO225</span>
           <button
             type="button"
-            onClick={() => onCopyCode('goldparis-sticky', 'LMPRO')}
+            onClick={() => onCopyCode('goldpari-sticky', 'XPRO225')}
             className="text-white/80 hover:text-white p-0.5 cursor-pointer transition-colors"
             title="Copier le code"
           >
-            {copiedCodeId === 'goldparis-sticky' ? <Check size={13} className="text-emerald-300" /> : <Copy size={13} />}
+            {copiedCodeId === 'goldpari-sticky' ? <Check size={13} className="text-emerald-300" /> : <Copy size={13} />}
           </button>
         </div>
 
-        {/* Bouton de redirection vers la page des bonus */}
+        {/* Bouton vers tous les bonus */}
         <button
           type="button"
           onClick={onNavigateToPartners}
