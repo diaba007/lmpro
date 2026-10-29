@@ -12,11 +12,22 @@ export interface PredictionHistoryRecord {
   status: 'WON' | 'LOST' | 'PENDING';
 }
 
+// EXPORTATION EXPLICITE POUR APP.TSX
+export const INITIAL_HISTORY: PredictionHistoryRecord[] = [
+  { id: '1', date: '28/10/2026', match: 'AC Milan vs Bologna FC', competition: 'Serie A', selection: 'Victoire Milan (1)', predictedOdds: '1.68', finalScore: '2 - 0', status: 'WON' },
+  { id: '2', date: '28/10/2026', match: 'Venezia vs Inter Milan', competition: 'Serie A', selection: 'Victoire Inter (2)', predictedOdds: '1.48', finalScore: '0 - 2', status: 'WON' },
+  { id: '3', date: '28/10/2026', match: 'Genoa vs Juventus', competition: 'Serie A', selection: 'Moins de 2.5 buts', predictedOdds: '1.65', finalScore: '1 - 0', status: 'WON' },
+  { id: '4', date: '27/10/2026', match: 'Arsenal FC vs Chelsea FC', competition: 'Premier League', selection: 'Plus de 2.5 buts', predictedOdds: '1.80', finalScore: '3 - 1', status: 'WON' },
+  { id: '5', date: '26/10/2026', match: 'Real Madrid vs Athletic Club', competition: 'La Liga', selection: 'Victoire Real Madrid (1)', predictedOdds: '1.45', finalScore: '2 - 0', status: 'WON' },
+  { id: '6', date: '25/10/2026', match: 'Juventus vs AC Milan', competition: 'Serie A', selection: 'BTTS - Les deux marquent', predictedOdds: '1.90', finalScore: '0 - 0', status: 'LOST' },
+  { id: '7', date: '24/10/2026', match: 'PSG vs Marseille', competition: 'Ligue 1', selection: 'Plus de 2.5 buts', predictedOdds: '1.60', finalScore: '3 - 1', status: 'WON' },
+];
+
 interface HistoryViewProps {
-  records: PredictionHistoryRecord[];
+  records?: PredictionHistoryRecord[];
 }
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ records }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ records = INITIAL_HISTORY }) => {
   const [filter, setFilter] = useState<'ALL' | 'WON' | 'LOST'>('ALL');
 
   const evaluated = records.filter(r => r.status === 'WON' || r.status === 'LOST');

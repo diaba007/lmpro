@@ -30,11 +30,10 @@ import {
   CheckCircle2, 
   ArrowLeft, 
   LogIn, 
-  LogOut, 
-  Mail 
+  LogOut 
 } from 'lucide-react';
 
-// IMPORTATION DES 4 COMPOSANTS MODULAIRES ÉPURÉS
+// IMPORTATION DES COMPOSANTS MODULAIRES
 import { StickyPromoBar } from './components/StickyPromoBar';
 import { PartnersView, INITIAL_PARTNERS } from './components/PartnersView';
 import { MatchAnalysisView } from './components/MatchAnalysisView';
@@ -95,7 +94,6 @@ export default function App() {
   const [authName, setAuthName] = useState('');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
-  const [authConfirmPass, setAuthConfirmPass] = useState('');
 
   // Super-Admin
   const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
@@ -305,7 +303,7 @@ export default function App() {
               onAdminLock={handleAdminLock}
               adminAuthError={adminAuthError}
               partners={partners}
-              onUploadLogo={handleUploadLogoFromPC}
+              onUploadLogo={handleUploadLogo}
               onUpdatePartner={(id, code, url) => {
                 const updated = partners.map(p => p.id === id ? { ...p, promoCode: code, url } : p);
                 setPartners(updated);
