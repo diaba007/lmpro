@@ -34,11 +34,13 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
-  PlusCircle
+  PlusCircle,
+  Crown
 } from 'lucide-react';
 
+// IMPORTATION DES COMPOSANTS MODULAIRES SANS OUBLI
 import { StickyPromoBar } from './components/StickyPromoBar';
-import { PartnersView, INITIAL_PARTNERS } from './components/PartnersView';
+import { PartnersView, INITIAL_PARTNERS, getPartnerTheme } from './components/PartnersView';
 import { MatchAnalysisView } from './components/MatchAnalysisView';
 import { AdminConsoleView } from './components/AdminConsoleView';
 import { HistoryView } from './components/HistoryView';
@@ -59,6 +61,25 @@ const googleProvider = new GoogleAuthProvider();
 
 type PageId = 'dashboard' | 'matches' | 'analysis' | 'predictions' | 'history' | 'partners' | 'profile' | 'admin';
 
+export interface Match {
+  id: number;
+  competition: { name: string; code?: string };
+  utcDate: string;
+  status: string;
+  homeTeam: { name: string; shortName?: string; crest?: string };
+  awayTeam: { name: string; shortName?: string; crest?: string };
+  score?: { fullTime: { home: number | null; away: number | null } };
+  isManual?: boolean;
+  customAnalysis?: {
+    prob1: number;
+    probX: number;
+    prob2: number;
+    xGHome: number;
+    xGAway: number;
+    comment: string;
+  };
+}
+
 const LEAGUES_LIST = [
   { code: 'ALL', name: 'Tous les Championnats', flag: '🌍' },
   { code: 'SA', name: 'Serie A', flag: '🇮🇹' },
@@ -73,14 +94,14 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // MATCHS : PURGÉS DE TOUT FAUX MATCH CODÉ EN DUR
-  const [apiMatches, setApiMatches] = useState<any[]>([]);
-  const [manualMatches, setManualMatches] = useState<any[]>(() => {
+  // DONNÉES RÉELLES : PURGÉES DE FAUX MATCHS
+  const [apiMatches, setApiMatches] = useState<Match[]>([]);
+  const [manualMatches, setManualMatches] = useState<Match[]>(() => {
     const s = localStorage.getItem('lmpro_manual_matches'); return s ? JSON.parse(s) : [];
   });
   const [isLiveApi, setIsLiveApi] = useState<boolean>(false);
   const [selectedLeagueFilter, setSelectedLeagueFilter] = useState('ALL');
-  const [selectedMatch, setSelectedMatch] = useState<any>(null);
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
   const [activeMarket, setActiveMarket] = useState<'ALL' | '1X2' | 'GOALS' | 'BTTS'>('ALL');
   const [user, setUser] = useState<any>(null);
@@ -105,16 +126,16 @@ export default function App() {
     const s = localStorage.getItem('lmpro_admin_team'); return s ? JSON.parse(s) : [];
   });
 
-  // Partenaires
+  // Partenaires et codes promos
   const [partners, setPartners] = useState<any[]>(() => {
     const s = localStorage.getItem('lmpro_partners'); return s ? JSON.parse(s) : INITIAL_PARTNERS;
   });
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
-  // Chatbot IA
+  // IA Chatbot
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([
-    { role: 'bot', text: 'Bonjour ! Je suis votre analyste tactique LMPRO. Posez-moi vos questions sur les matchs réels en cours !' }
+    { role: 'bot', text: 'Bonjour ! Je suis votre analyste tactique LMPRO. Posez-moi vos questions sur les rencontres actives !' }
   ]);
   const [inputQuestion, setInputQuestion] = useState('');
 
@@ -137,7 +158,7 @@ export default function App() {
     return onAuthStateChanged(auth, (u) => setUser(u));
   }, []);
 
-  // CHARGEMENT DIRECT DES VRAIS MATCHS DE L'API OFFICIELLE
+  // CHARGEMENT DIRECT DES VRAIS MATCHS DEPUIS L'API OFFICIELLE
   useEffect(() => {
     async function loadLiveMatches() {
       try {
@@ -151,7 +172,7 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.log("API en attente ou vide. Relais administrateur actif.");
+        console.log("Relais actif : attente de publication manuelle ou d'API.");
       }
       setIsLiveApi(false);
     }
@@ -240,8 +261,44 @@ export default function App() {
     r.readAsDataURL(file);
   };
 
+  // AJOUT D'UN MATCH MANUEL PAR L'ADMINISTRATEUR
+  const handleAddManualMatch = (data: any) => {
+    const newM: Match = {
+      id: Date.now(),
+      competition: { name: data.comp, code: data.comp === 'Serie A' ? 'SA' : data.comp === 'Premier League' ? 'PL' : 'PD' },
+      utcDate: new Date().toISOString(),
+      status: 'TIMED',
+      homeTeam: { name: data.home, shortName: data.home },
+      awayTeam: { name: data.away, shortName: data.away },
+      isManual: true,
+      customAnalysis: {
+        prob1: Number(data.prob1),
+        probX: Number(data.probX),
+        prob2: Number(data.prob2),
+        xGHome: Number(data.xGHome),
+        xGAway: Number(data.xGAway),
+        comment: data.comment || "Analyse experte validée par la direction LMPRO."
+      }
+    };
+    const updated = [newM, ...manualMatches];
+    setManualMatches(updated);
+    localStorage.setItem('lmpro_manual_matches', JSON.stringify(updated));
+    setSelectedMatch(newM);
+    setAdminNotification(`Le match ${newM.homeTeam.name} vs ${newM.awayTeam.name} a été publié avec votre analyse !`);
+    setTimeout(() => setAdminNotification(null), 3500);
+  };
+
+  const handleDeleteManualMatch = (id: number) => {
+    const updated = manualMatches.filter(m => m.id !== id);
+    setManualMatches(updated);
+    localStorage.setItem('lmpro_manual_matches', JSON.stringify(updated));
+    if (selectedMatch?.id === id) setSelectedMatch(null);
+    setAdminNotification("Match retiré avec succès.");
+    setTimeout(() => setAdminNotification(null), 3500);
+  };
+
   // CALCULS PURS DE POISSON SUR LE MATCH SÉLECTIONNÉ
-  const getMatchAnalysis = (m: any) => {
+  const getMatchAnalysis = (m: Match | null) => {
     if (!m) return null;
     if (m.isManual && m.customAnalysis) {
       return {
@@ -255,7 +312,6 @@ export default function App() {
         btts: 53
       };
     }
-    // Modélisation basée sur l'id réel du match
     const seed = (m.id % 7) + 1;
     const hWin = Number((38 + seed * 3.5).toFixed(1));
     const dWin = Number((28 - (seed % 3)).toFixed(1));
@@ -272,7 +328,7 @@ export default function App() {
     };
   };
 
-  const getMatchOdds = (m: any) => {
+  const getMatchOdds = (m: Match | null) => {
     const a = getMatchAnalysis(m);
     if (!a) return null;
     return {
@@ -282,7 +338,7 @@ export default function App() {
     };
   };
 
-  // FUSION RÉELLE : MATCHS API OFFICIELS + MATCHS PUBLIÉS PAR L'ADMINISTRATEUR
+  // TOUS LES MATCHS RÉELS (MANUELS + API)
   const allRealMatches = [...manualMatches, ...apiMatches];
 
   const filteredMatches = selectedLeagueFilter === 'ALL'
@@ -298,6 +354,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#081426] text-white flex flex-col md:flex-row font-sans relative">
+      
       {/* Topbar Mobile */}
       <div className="md:hidden bg-[#081426] border-b border-[#162C50] p-4 flex justify-between items-center">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('dashboard')}>
@@ -365,7 +422,7 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Area */}
+      {/* Zone Principale */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         <StickyPromoBar 
           onCopyCode={handleCopyCode} 
@@ -404,7 +461,7 @@ export default function App() {
             )
           )}
 
-          {/* PAGE HISTORIQUE CERTIFIÉ (PURGÉ) */}
+          {/* PAGE HISTORIQUE CERTIFIÉ (PURGÉ DE FAUX MATCHS) */}
           {currentPage === 'history' && <HistoryView />}
 
           {/* PAGE CONSOLE ADMIN */}
@@ -420,32 +477,8 @@ export default function App() {
               onUploadLogo={handleUploadLogo}
               onUpdatePartner={handleUpdatePartner}
               manualMatches={manualMatches}
-              onAddManualMatch={(data) => {
-                const newM = {
-                  id: Date.now(),
-                  competition: { name: data.comp, code: data.comp === 'Serie A' ? 'SA' : data.comp === 'Premier League' ? 'PL' : 'PD' },
-                  utcDate: new Date().toISOString(),
-                  status: 'TIMED',
-                  homeTeam: { name: data.home, shortName: data.home },
-                  awayTeam: { name: data.away, shortName: data.away },
-                  isManual: true,
-                  customAnalysis: data
-                };
-                const updated = [newM, ...manualMatches];
-                setManualMatches(updated);
-                localStorage.setItem('lmpro_manual_matches', JSON.stringify(updated));
-                setSelectedMatch(newM);
-                setAdminNotification(`Le match ${newM.homeTeam.name} vs ${newM.awayTeam.name} a été publié avec votre analyse d'expert !`);
-                setTimeout(() => setAdminNotification(null), 3500);
-              }}
-              onDeleteManualMatch={(id) => {
-                const updated = manualMatches.filter(m => m.id !== id);
-                setManualMatches(updated);
-                localStorage.setItem('lmpro_manual_matches', JSON.stringify(updated));
-                if (selectedMatch?.id === id) setSelectedMatch(null);
-                setAdminNotification("Match retiré avec succès.");
-                setTimeout(() => setAdminNotification(null), 3500);
-              }}
+              onAddManualMatch={handleAddManualMatch}
+              onDeleteManualMatch={handleDeleteManualMatch}
               adminTeam={adminTeam}
               onAddAdmin={handleAddAdmin}
               onRemoveAdmin={handleRemoveAdmin}
@@ -483,7 +516,7 @@ export default function App() {
                 ))}
               </div>
 
-              {/* ÉTAT DES LIEUX : MATCHS RÉELS OU ÉCRAN D'ATTENTE AVEC RELAIS ADMIN */}
+              {/* Matchs du jour réels ou écran de relais */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -493,7 +526,6 @@ export default function App() {
                 </div>
 
                 {filteredMatches.length === 0 ? (
-                  // ÉCRAN PROPRE : AUCUN FAUX MATCH INVENTÉ !
                   <div className="py-12 px-4 text-center max-w-lg mx-auto space-y-4">
                     <div className="w-14 h-14 rounded-full bg-[#081426] border border-[#162C50] flex items-center justify-center mx-auto text-[#94A3B8]">
                       <CalendarDays size={26} />
@@ -501,17 +533,16 @@ export default function App() {
                     <div>
                       <h3 className="text-base font-bold text-white">Aucun match officiel programmé à cet instant</h3>
                       <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
-                        L'API football-data.org n'a détecté aucune rencontre pour ce créneau horaire.
+                        L'API n'a détecté aucune rencontre en cours pour ce créneau horaire.
                       </p>
                     </div>
 
-                    {/* RELAIS DIRECT POUR L'ADMINISTRATEUR (CHRISTIAN) */}
                     <div className="p-4 bg-[#081426] rounded-2xl border border-dashed border-[#162C50] space-y-2">
                       <p className="text-xs text-amber-300 font-semibold flex items-center justify-center gap-1.5">
                         <Crown size={14} className="text-amber-400" /> Relais Administrateur Ouvert
                       </p>
                       <p className="text-[11px] text-[#94A3B8]">
-                        Vous pouvez publier vos propres affiches avec vos analyses personnalisées dans la console.
+                        Publiez vos propres affiches avec vos analyses personnalisées dans la console.
                       </p>
                       <button
                         onClick={() => navigateTo('admin')}
