@@ -47,8 +47,9 @@ import {
   AlertCircle,
   HelpCircle,
   PlusCircle,
-  Sliders,
-  Filter
+  Filter,
+  Copy,
+  Flame
 } from 'lucide-react';
 
 import { PartnersView, INITIAL_PARTNERS, getPartnerTheme } from './components/PartnersView';
@@ -108,7 +109,6 @@ export interface PredictionHistoryRecord {
   status: 'WON' | 'LOST' | 'PENDING';
 }
 
-// HISTORIQUE CERTIFIÉ DE DÉPART (ÉVALUÉ ET AUDITABLE)
 const INITIAL_HISTORY: PredictionHistoryRecord[] = [
   { id: '1', date: '28/10/2026', match: 'AC Milan vs Bologna FC', competition: 'Serie A', selection: 'Victoire Milan (1)', predictedOdds: '1.68', finalScore: '2 - 0', status: 'WON' },
   { id: '2', date: '28/10/2026', match: 'Venezia vs Inter Milan', competition: 'Serie A', selection: 'Victoire Inter (2)', predictedOdds: '1.48', finalScore: '0 - 2', status: 'WON' },
@@ -133,7 +133,6 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // MATCHS : COMBINAISON API + AJOUTS MANUELS DE L'ADMIN
   const [matches, setMatches] = useState<Match[]>([]);
   const [manualMatches, setManualMatches] = useState<Match[]>(() => {
     const saved = localStorage.getItem('lmpro_manual_matches');
@@ -144,8 +143,7 @@ export default function App() {
   const [selectedLeagueFilter, setSelectedLeagueFilter] = useState<string>('ALL');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  // HISTORIQUE CERTIFIÉ AVEC PERSISTANCE
-  const [historyRecords, setHistoryRecords] = useState<PredictionHistoryRecord[]>(() => {
+  const [historyRecords] = useState<PredictionHistoryRecord[]>(() => {
     const saved = localStorage.getItem('lmpro_certified_history');
     return saved ? JSON.parse(saved) : INITIAL_HISTORY;
   });
@@ -153,7 +151,6 @@ export default function App() {
 
   const [activeMarket, setActiveMarket] = useState<'ALL' | '1X2' | 'GOALS' | 'BTTS'>('ALL');
   const [user, setUser] = useState<any>(null);
-  const [favoriteLeagues, setFavoriteLeagues] = useState<string[]>(['Serie A', 'Premier League', 'La Liga']);
 
   // AUTHENTIFICATION PUBLIQUE
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
@@ -175,7 +172,7 @@ export default function App() {
     return sessionStorage.getItem('lmpro_admin_session') === 'true';
   });
 
-  // FORMULAIRE D'AJOUT DE MATCH PAR L'ADMINISTRATEUR (QUAND L'API EST VIDE OU EN RELAIS)
+  // AJOUT DE MATCH PAR L'ADMIN
   const [manualHome, setManualHome] = useState('');
   const [manualAway, setManualAway] = useState('');
   const [manualComp, setManualComp] = useState('Serie A');
@@ -238,7 +235,6 @@ export default function App() {
         if (res.ok) {
           const data = await res.json();
           if (data.matches && data.matches.length > 0) {
-            // L'API a trouvé des matchs réels !
             const combined = [...data.matches, ...manualMatches];
             setMatches(combined);
             setSelectedMatch(combined[0]);
@@ -247,10 +243,9 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.log("Relais actif : Chargement des matchs administrés.");
+        console.log("Relais actif : Chargement des matchs.");
       }
 
-      // Si l'API est vide ou injoignable, on utilise les matchs administrés par Christian + base secours
       const fallbackList = manualMatches.length > 0 ? manualMatches : [
         {
           id: 5001,
@@ -377,7 +372,6 @@ export default function App() {
     triggerAdminAction("La Console Administrateur a été verrouillée.");
   };
 
-  // AJOUT D'UN MATCH MANUEL PAR L'ADMINISTRATEUR (QUAND L'API NE TROUVE RIEN)
   const handleAddManualMatch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualHome.trim() || !manualAway.trim()) {
@@ -407,14 +401,12 @@ export default function App() {
     setManualMatches(updated);
     localStorage.setItem('lmpro_manual_matches', JSON.stringify(updated));
 
-    // Réinitialisation du formulaire
     setManualHome('');
     setManualAway('');
     setManualComment('');
     triggerAdminAction(`Le match ${newMatch.homeTeam.name} vs ${newMatch.awayTeam.name} a été publié avec votre analyse !`);
   };
 
-  // SUPPRIMER UN MATCH MANUEL
   const handleDeleteManualMatch = (id: number) => {
     const updated = manualMatches.filter(m => m.id !== id);
     setManualMatches(updated);
@@ -452,7 +444,6 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  // CALCUL STATISTIQUE DE L'ANALYSE D'UN MATCH (MANUEL OU POISSON)
   const getMatchAnalysis = (match: Match) => {
     if (match.isManual && match.customAnalysis) {
       return {
@@ -467,14 +458,12 @@ export default function App() {
       };
     }
 
-    // Calcul par défaut
     const id = match.id;
     if (id === 5001) return { homeWin: 56.4, draw: 25.1, awayWin: 18.5, xGHome: 1.95, xGAway: 0.90, over15: 76.5, over25: 52.0, btts: 51.0 };
     if (id === 5002) return { homeWin: 14.2, draw: 21.8, awayWin: 64.0, xGHome: 0.75, xGAway: 2.25, over15: 82.0, over25: 61.5, btts: 54.0 };
     return { homeWin: 48.0, draw: 28.0, awayWin: 24.0, xGHome: 1.70, xGAway: 1.10, over15: 72.0, over25: 50.0, btts: 52.0 };
   };
 
-  // COTES ADAPTÉES À L'ANALYSE
   const getMatchOdds = (match: Match) => {
     const a = getMatchAnalysis(match);
     return {
@@ -484,7 +473,6 @@ export default function App() {
     };
   };
 
-  // FILTRAGE DES MATCHS
   const filteredMatches = selectedLeagueFilter === 'ALL'
     ? matches
     : matches.filter(m => 
@@ -502,7 +490,6 @@ export default function App() {
     { name: activeMatch.awayTeam.shortName || activeMatch.awayTeam.name, prob: activeAnalysis.awayWin, fill: '#00D68F' }
   ] : [];
 
-  // CALCULS STATISTIQUES POUR L'HISTORIQUE CERTIFIÉ
   const evaluatedHistory = historyRecords.filter(r => r.status === 'WON' || r.status === 'LOST');
   const wonCount = evaluatedHistory.filter(r => r.status === 'WON').length;
   const certifiedWinrate = evaluatedHistory.length > 0 ? ((wonCount / evaluatedHistory.length) * 100).toFixed(1) : "0";
@@ -595,7 +582,7 @@ export default function App() {
               </span>
             </div>
           </div>
-          {user ? (
+          {user || isAdminAuthenticated ? (
             <button onClick={handleLogout} className="text-[#94A3B8] hover:text-rose-400 p-1" title="Déconnexion">
               <LogOut size={16} />
             </button>
@@ -609,18 +596,93 @@ export default function App() {
 
       {/* Zone Principale */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
-        <div className="px-6 py-2.5 flex items-center justify-between text-xs border-b bg-[#00D68F]/10 border-[#00D68F]/20 text-[#00D68F]">
+
+        {/* ============================================================== */}
+        {/* BANDEAU FLOTTANT FIXE DES CODES PROMOS (STICKY VISIBLE PARTOUT) */}
+        {/* ============================================================== */}
+        <div className="sticky top-0 z-40 bg-[#081426]/95 backdrop-blur-md border-b border-amber-500/30 px-4 py-2.5 shadow-xl flex items-center justify-between gap-3 overflow-x-auto scrollbar-none">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+            <span className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Flame size={14} className="text-amber-400" /> CODES PROMO :
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            {/* 🟡 Melbet */}
+            <div className="flex items-center gap-1.5 bg-[#0D1E38] border border-amber-400/40 px-2.5 py-1 rounded-lg">
+              <span className="text-[11px] font-bold text-amber-300">Melbet:</span>
+              <span className="text-xs font-mono font-black text-white">XPRO225</span>
+              <button
+                onClick={() => handleCopyCode('melbet-sticky', 'XPRO225')}
+                className="text-[#94A3B8] hover:text-white p-0.5"
+                title="Copier le code"
+              >
+                {copiedCodeId === 'melbet-sticky' ? <Check size={12} className="text-[#00D68F]" /> : <Copy size={12} />}
+              </button>
+            </div>
+
+            {/* 🟢 Betwinner */}
+            <div className="flex items-center gap-1.5 bg-[#0D1E38] border border-emerald-500/40 px-2.5 py-1 rounded-lg">
+              <span className="text-[11px] font-bold text-emerald-400">Betwinner:</span>
+              <span className="text-xs font-mono font-black text-white">DKC10</span>
+              <button
+                onClick={() => handleCopyCode('betwinner-sticky', 'DKC10')}
+                className="text-[#94A3B8] hover:text-white p-0.5"
+                title="Copier le code"
+              >
+                {copiedCodeId === 'betwinner-sticky' ? <Check size={12} className="text-[#00D68F]" /> : <Copy size={12} />}
+              </button>
+            </div>
+
+            {/* 🟠 Goldparis */}
+            <div className="flex items-center gap-1.5 bg-[#0D1E38] border border-orange-500/40 px-2.5 py-1 rounded-lg">
+              <span className="text-[11px] font-bold text-orange-400">Goldparis:</span>
+              <span className="text-xs font-mono font-black text-white">LMPRO</span>
+              <button
+                onClick={() => handleCopyCode('goldparis-sticky', 'LMPRO')}
+                className="text-[#94A3B8] hover:text-white p-0.5"
+                title="Copier le code"
+              >
+                {copiedCodeId === 'goldparis-sticky' ? <Check size={12} className="text-[#00D68F]" /> : <Copy size={12} />}
+              </button>
+            </div>
+
+            {/* 🔴 Betclic */}
+            <div className="flex items-center gap-1.5 bg-[#0D1E38] border border-red-500/40 px-2.5 py-1 rounded-lg">
+              <span className="text-[11px] font-bold text-red-400">Betclic:</span>
+              <span className="text-xs font-mono font-black text-white">XPRONO</span>
+              <button
+                onClick={() => handleCopyCode('betclic-sticky', 'XPRONO')}
+                className="text-[#94A3B8] hover:text-white p-0.5"
+                title="Copier le code"
+              >
+                {copiedCodeId === 'betclic-sticky' ? <Check size={12} className="text-[#00D68F]" /> : <Copy size={12} />}
+              </button>
+            </div>
+
+            <button
+              onClick={() => navigateTo('partners')}
+              className="bg-amber-400 hover:bg-yellow-400 text-black font-black text-[10px] px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors"
+            >
+              Bonus →
+            </button>
+          </div>
+        </div>
+
+        {/* Bandeau d'état du direct */}
+        <div className="px-6 py-2 flex items-center justify-between text-xs border-b bg-[#0D1E38] text-[#94A3B8]">
           <div className="flex items-center gap-2">
-            <Radio size={16} className="animate-pulse text-[#00D68F]" />
+            <Radio size={14} className="animate-pulse text-[#00D68F]" />
             <span>
               {isLiveApi ? (
-                <span><strong className="text-white">API DIRECTE ACTIVE :</strong> Rencontres synchronisées depuis football-data.org</span>
+                <span><strong className="text-white">API DIRECTE ACTIVE :</strong> Rencontres officielles synchronisées</span>
               ) : (
-                <span><strong className="text-white">RELAIS ADMIN ACTIF :</strong> Affichage des analyses certifiées LMPRO</span>
+                <span><strong className="text-white">RELAIS ADMIN :</strong> Modélisation et analyses en direct</span>
               )}
             </span>
           </div>
-          <span className="font-mono bg-[#162C50] text-white px-2 py-0.5 rounded text-[10px] font-bold">
+          <span className="font-mono bg-[#081426] text-[#00D68F] px-2 py-0.5 rounded text-[10px] font-bold border border-[#162C50]">
             {isLiveApi ? 'API LIVE' : 'RELAIS ADMIN'}
           </span>
         </div>
@@ -723,7 +785,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* NOUVEAU : FORMULAIRE POUR AJOUTER UN MATCH MANUEL QUAND L'API EST VIDE */}
+                  {/* FORMULAIRE POUR AJOUTER UN MATCH MANUEL QUAND L'API EST VIDE */}
                   <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
                     <div className="flex items-center gap-2">
                       <PlusCircle size={20} className="text-[#00D68F]" />
@@ -842,7 +904,6 @@ export default function App() {
                       </button>
                     </form>
 
-                    {/* Liste des matchs manuels ajoutés */}
                     {manualMatches.length > 0 && (
                       <div className="pt-4 border-t border-[#162C50] space-y-2">
                         <span className="text-xs font-bold text-[#94A3B8] block">Vos Matchs Manuels Publiés ({manualMatches.length}) :</span>
@@ -1221,11 +1282,9 @@ export default function App() {
             </div>
           )}
 
-          {/* VUE HISTORIQUE CERTIFIÉ (ENFIN INTERACTIVE AVEC WINRATE EN DIRECT ET FILTRES) */}
+          {/* VUE HISTORIQUE CERTIFIÉ */}
           {currentPage === 'history' && (
             <div className="space-y-6">
-              
-              {/* En-tête avec Taux de Réussite Réel */}
               <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h1 className="text-2xl font-black text-white flex items-center gap-2">
@@ -1243,7 +1302,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Filtres de résultat : Tous / Validés / Échoués */}
+              {/* Filtres de résultat */}
               <div className="flex justify-between items-center bg-[#0D1E38] p-3 rounded-xl border border-[#162C50]">
                 <div className="flex items-center gap-2 text-xs">
                   <Filter size={14} className="text-[#0066FF]" />
