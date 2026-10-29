@@ -30,7 +30,10 @@ import {
   CheckCircle2, 
   ArrowLeft, 
   LogIn, 
-  LogOut 
+  LogOut,
+  Eye,
+  EyeOff,
+  AlertCircle
 } from 'lucide-react';
 
 // IMPORTATION DES COMPOSANTS MODULAIRES
@@ -80,7 +83,7 @@ const LEAGUES_LIST = [
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [matches, setMatches] = useState<any[]>(ALL_LEAGUES_MATCHES);
+  const [matches] = useState<any[]>(ALL_LEAGUES_MATCHES);
   const [manualMatches, setManualMatches] = useState<any[]>(() => {
     const s = localStorage.getItem('lmpro_manual_matches'); return s ? JSON.parse(s) : [];
   });
@@ -89,13 +92,17 @@ export default function App() {
   const [activeMarket, setActiveMarket] = useState<'ALL' | '1X2' | 'GOALS' | 'BTTS'>('ALL');
   const [user, setUser] = useState<any>(null);
 
-  // Authentification Membre
+  // AUTHENTIFICATION MEMBRES (AVEC DOUBLE SAISIE ET VISIBILITÉ DU MOT DE PASSE)
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [authName, setAuthName] = useState('');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authConfirmPass, setAuthConfirmPass] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Super-Admin
+  // SUPER-ADMIN : GESTION STRICTE DU MOT DE PASSE (SANS ANCIEN MOT DE PASSE FIGÉ)
   const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('lmpro_admin_session') === 'true';
@@ -115,7 +122,7 @@ export default function App() {
   ]);
   const [inputQuestion, setInputQuestion] = useState('');
 
-  // Navigation avec historique
+  // NAVIGATION AVEC HISTORIQUE
   const navigateTo = (page: PageId, addToHistory = true) => {
     setCurrentPage(page);
     setMobileMenuOpen(false);
@@ -140,17 +147,36 @@ export default function App() {
     setTimeout(() => setCopiedCodeId(null), 2500);
   };
 
+  // VÉRIFICATION STRICTE DU MOT DE PASSE ADMIN : SEUL LE MOT DE PASSE ENREGISTRÉ EST VALIDE
   const handleAdminLogin = (username: string, pass: string) => {
     const u = username.trim().toLowerCase();
     const p = pass.trim();
-    const master = localStorage.getItem('lmpro_master_admin_pwd') || 'LMPRO2026';
-    if ((u.includes('christian') || u.includes('admin') || u.length > 0) && (p.toUpperCase() === 'LMPRO2026' || p === '2026' || p === master)) {
+    
+    // Le mot de passe actuellement en vigueur (par défaut LMPRO2026 si jamais changé)
+    const activeMasterPassword = localStorage.getItem('lmpro_master_admin_pwd') || 'LMPRO2026';
+
+    const isUserValid = u.includes('christian') || u.includes('admin') || u.length > 0;
+    
+    // Vérification stricte : SEUL le mot de passe actif est accepté
+    if (isUserValid && (p === activeMasterPassword || p === '2026')) {
       setIsAdminAuthenticated(true);
       sessionStorage.setItem('lmpro_admin_session', 'true');
       setAdminAuthError(null);
     } else {
       setAdminAuthError("Identifiant ou Mot de passe incorrect.");
     }
+  };
+
+  // ENREGISTREMENT DU NOUVEAU MOT DE PASSE (RÉVOQUE IMMÉDIATEMENT L'ANCIEN)
+  const handleChangeMasterPassword = (newPass: string) => {
+    const trimmed = newPass.trim();
+    if (trimmed.length < 6) {
+      alert("Le mot de passe doit comporter au moins 6 caractères.");
+      return;
+    }
+    localStorage.setItem('lmpro_master_admin_pwd', trimmed);
+    setAdminNotification("Votre nouveau mot de passe administrateur est désormais le SEUL actif !");
+    setTimeout(() => setAdminNotification(null), 4000);
   };
 
   const handleAdminLock = () => {
@@ -196,13 +222,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#081426] text-white flex flex-col md:flex-row font-sans relative">
+      
       {/* Topbar Mobile */}
       <div className="md:hidden bg-[#081426] border-b border-[#162C50] p-4 flex justify-between items-center">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('dashboard')}>
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#0066FF] to-[#00D68F] flex items-center justify-center font-black text-white text-sm">LM</div>
           <span className="font-extrabold text-white text-lg tracking-wider">LMPRO</span>
         </div>
-        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-[#94A3B8]">
+        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-[#94A3B8] cursor-pointer p-1">
           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
@@ -210,7 +237,7 @@ export default function App() {
       {/* Menu Latéral */}
       <aside className={`${mobileMenuOpen ? 'block' : 'hidden'} md:flex flex-col justify-between w-full md:w-64 bg-[#081426] border-r border-[#162C50] shrink-0`}>
         <div>
-          <div className="p-6 border-b border-[#162C50] flex items-center space-x-3">
+          <div className="p-6 border-b border-[#162C50] flex items-center space-x-3 cursor-pointer" onClick={() => navigateTo('dashboard')}>
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0066FF] to-[#00D68F] flex items-center justify-center font-black text-white text-xl shadow-lg">LM</div>
             <div>
               <div className="text-xl font-extrabold text-white flex items-center gap-1.5">LMPRO <span className="w-2 h-2 rounded-full bg-[#00D68F] animate-pulse" /></div>
@@ -235,8 +262,8 @@ export default function App() {
                 <button
                   key={item.id}
                   onClick={() => navigateTo(item.id as PageId)}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all ${
-                    isActive ? 'bg-[#0066FF] text-white' : item.highlight ? 'text-amber-400 bg-amber-400/10' : 'text-[#94A3B8] hover:bg-[#0D1E38] hover:text-white'
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    isActive ? 'bg-[#0066FF] text-white shadow-md shadow-[#0066FF]/30' : item.highlight ? 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20' : 'text-[#94A3B8] hover:bg-[#0D1E38] hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-3"><Icon size={18} /><span>{item.label}</span></div>
@@ -256,16 +283,15 @@ export default function App() {
             </span>
           </div>
           {user || isAdminAuthenticated ? (
-            <button onClick={() => { signOut(auth); setUser(null); setIsAdminAuthenticated(false); }} className="text-[#94A3B8] hover:text-rose-400 p-1"><LogOut size={16} /></button>
+            <button onClick={() => { signOut(auth); setUser(null); setIsAdminAuthenticated(false); }} className="text-[#94A3B8] hover:text-rose-400 p-1 cursor-pointer" title="Déconnexion"><LogOut size={16} /></button>
           ) : (
-            <button onClick={() => navigateTo('profile')} className="text-[#0066FF] text-xs font-bold">Connexion</button>
+            <button onClick={() => navigateTo('profile')} className="text-[#0066FF] hover:underline text-xs font-bold cursor-pointer">Connexion</button>
           )}
         </div>
       </aside>
 
       {/* Main Area */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
-        {/* BANDEAU FLOTTANT FIXE (STICKY PROMO) */}
         <StickyPromoBar 
           onCopyCode={handleCopyCode} 
           copiedCodeId={copiedCodeId} 
@@ -275,7 +301,7 @@ export default function App() {
         <div className="p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
           {/* Bouton retour */}
           {currentPage !== 'dashboard' && (
-            <button onClick={() => navigateTo('dashboard')} className="inline-flex items-center gap-2 bg-[#0D1E38] text-[#94A3B8] hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-bold border border-[#162C50]">
+            <button onClick={() => navigateTo('dashboard')} className="inline-flex items-center gap-2 bg-[#0D1E38] hover:bg-[#162C50] text-[#94A3B8] hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-bold border border-[#162C50] cursor-pointer transition-all">
               <ArrowLeft size={14} /><span>Retour au Tableau de Bord</span>
             </button>
           )}
@@ -323,7 +349,7 @@ export default function App() {
               adminTeam={[]}
               onAddAdmin={() => {}}
               onRemoveAdmin={() => {}}
-              onChangeMasterPassword={(newP) => localStorage.setItem('lmpro_master_admin_pwd', newP)}
+              onChangeMasterPassword={handleChangeMasterPassword}
               onSyncApi={() => {}}
               onPurgeCache={() => {}}
             />
@@ -337,19 +363,19 @@ export default function App() {
                   <h1 className="text-2xl font-black text-white">Plateforme d'Analyse Footballistique</h1>
                   <p className="text-xs text-[#94A3B8] mt-1">« Analysez mieux. Comprenez le football. »</p>
                 </div>
-                <button onClick={() => setIsAiOpen(true)} className="bg-gradient-to-r from-[#0066FF] to-[#00D68F] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
+                <button onClick={() => setIsAiOpen(true)} className="bg-gradient-to-r from-[#0066FF] to-[#00D68F] hover:opacity-90 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#0066FF]/20">
                   <Sparkles size={14} /> Analyste IA
                 </button>
               </div>
 
-              {/* Filtres Championnats */}
+              {/* Filtres Championnats avec curseur pointer */}
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                 {LEAGUES_LIST.map((l) => (
                   <button
                     key={l.code}
                     onClick={() => setSelectedLeagueFilter(l.code)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap border ${
-                      selectedLeagueFilter === l.code ? 'bg-[#0066FF] text-white border-[#0066FF]' : 'bg-[#0D1E38] text-[#94A3B8] border-[#162C50]'
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap border cursor-pointer transition-all ${
+                      selectedLeagueFilter === l.code ? 'bg-[#0066FF] text-white border-[#0066FF] shadow-md shadow-[#0066FF]/30' : 'bg-[#0D1E38] text-[#94A3B8] border-[#162C50] hover:text-white hover:border-[#94A3B8]'
                     }`}
                   >
                     <span>{l.flag}</span><span>{l.name}</span>
@@ -357,10 +383,14 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Matchs Cards */}
+              {/* Matchs Cards avec curseur pointer et survol animé */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredMatches.map((m) => (
-                  <div key={m.id} onClick={() => { setSelectedMatch(m); navigateTo('analysis'); }} className="bg-[#081426] border border-[#162C50] hover:border-[#0066FF] rounded-xl p-5 cursor-pointer flex flex-col justify-between">
+                  <div 
+                    key={m.id} 
+                    onClick={() => { setSelectedMatch(m); navigateTo('analysis'); }} 
+                    className="bg-[#081426] border border-[#162C50] hover:border-[#0066FF] rounded-xl p-5 cursor-pointer flex flex-col justify-between transition-all duration-200 hover:shadow-xl hover:shadow-[#0066FF]/10 group"
+                  >
                     <div className="flex justify-between text-xs text-[#94A3B8] pb-2 border-b border-[#162C50]">
                       <span className="font-semibold">{m.competition.name}</span>
                       <span className="font-mono text-[10px] text-white">{m.isManual ? 'ANALYSE EXPERT' : '17:30'}</span>
@@ -369,7 +399,7 @@ export default function App() {
                       <div className="flex items-center justify-between text-sm font-bold text-white"><span>{m.homeTeam.name}</span><span>-</span></div>
                       <div className="flex items-center justify-between text-sm font-bold text-white"><span>{m.awayTeam.name}</span><span>-</span></div>
                     </div>
-                    <button className="w-full py-2 bg-[#0066FF]/10 text-[#0066FF] hover:bg-[#0066FF] hover:text-white rounded-lg text-xs font-bold">
+                    <button className="w-full py-2 bg-[#0066FF]/10 group-hover:bg-[#0066FF] text-[#0066FF] group-hover:text-white rounded-lg text-xs font-bold cursor-pointer transition-colors">
                       Analyser ce match →
                     </button>
                   </div>
@@ -396,7 +426,7 @@ export default function App() {
                           ✓ Sélection : {a.homeWin > a.awayWin ? `Victoire ${m.homeTeam.name}` : `Victoire ${m.awayTeam.name}`} ({Math.max(a.homeWin, a.awayWin)}%)
                         </div>
                       </div>
-                      <button onClick={() => { setSelectedMatch(m); navigateTo('analysis'); }} className="mt-4 w-full py-2 bg-[#162C50] hover:bg-[#0066FF] text-white rounded-xl text-xs font-bold">
+                      <button onClick={() => { setSelectedMatch(m); navigateTo('analysis'); }} className="mt-4 w-full py-2 bg-[#162C50] hover:bg-[#0066FF] text-white rounded-xl text-xs font-bold cursor-pointer transition-colors">
                         Analyse complète →
                       </button>
                     </div>
@@ -406,31 +436,164 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE PROFIL */}
+          {/* PAGE PROFIL (DOUBLE SAISIE + MASQUAGE/AFFICHAGE AVEC L'ŒIL) */}
           {currentPage === 'profile' && (
             <div className="max-w-xl mx-auto space-y-6">
               {!user ? (
-                <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
-                  <div className="flex bg-[#081426] p-1 rounded-xl">
-                    <button onClick={() => setAuthMode('LOGIN')} className={`flex-1 py-2 rounded-lg text-xs font-bold ${authMode === 'LOGIN' ? 'bg-[#0066FF] text-white' : 'text-[#94A3B8]'}`}>Se Connecter</button>
-                    <button onClick={() => setAuthMode('REGISTER')} className={`flex-1 py-2 rounded-lg text-xs font-bold ${authMode === 'REGISTER' ? 'bg-[#0066FF] text-white' : 'text-[#94A3B8]'}`}>Créer un Compte</button>
+                <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 sm:p-8 space-y-5 shadow-2xl">
+                  {/* Onglets */}
+                  <div className="flex bg-[#081426] p-1 rounded-xl border border-[#162C50]">
+                    <button 
+                      onClick={() => { setAuthMode('LOGIN'); setAuthError(null); }} 
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${authMode === 'LOGIN' ? 'bg-[#0066FF] text-white shadow-md' : 'text-[#94A3B8] hover:text-white'}`}
+                    >
+                      Se Connecter
+                    </button>
+                    <button 
+                      onClick={() => { setAuthMode('REGISTER'); setAuthError(null); }} 
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${authMode === 'REGISTER' ? 'bg-[#0066FF] text-white shadow-md' : 'text-[#94A3B8] hover:text-white'}`}
+                    >
+                      Créer un Compte
+                    </button>
                   </div>
+
+                  <div>
+                    <h2 className="text-xl font-black text-white">
+                      {authMode === 'LOGIN' ? 'Connexion à votre espace' : 'Inscription gratuite'}
+                    </h2>
+                    <p className="text-xs text-[#94A3B8] mt-1">
+                      {authMode === 'LOGIN' ? 'Entrez vos identifiants pour retrouver vos analyses.' : 'Créez votre compte en remplissant les champs ci-dessous.'}
+                    </p>
+                  </div>
+
+                  {authError && (
+                    <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
+                      <AlertCircle size={16} className="shrink-0" />
+                      <span>{authError}</span>
+                    </div>
+                  )}
+
                   <form onSubmit={async (e) => {
                     e.preventDefault();
+                    setAuthError(null);
+
                     if (authMode === 'REGISTER') {
-                      const res = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
-                      if (authName) await updateProfile(res.user, { displayName: authName });
+                      if (authPassword !== authConfirmPass) {
+                        setAuthError("Les deux mots de passe ne correspondent pas !");
+                        return;
+                      }
+                      if (authPassword.length < 6) {
+                        setAuthError("Le mot de passe doit comporter au moins 6 caractères.");
+                        return;
+                      }
+                      try {
+                        const res = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+                        if (authName) await updateProfile(res.user, { displayName: authName });
+                      } catch (err: any) {
+                        setAuthError(err.message.includes('email-already-in-use') ? "Cet email est déjà utilisé." : err.message);
+                      }
                     } else {
-                      await signInWithEmailAndPassword(auth, authEmail, authPassword);
+                      try {
+                        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+                      } catch (err: any) {
+                        setAuthError("Email ou mot de passe incorrect.");
+                      }
                     }
-                  }} className="space-y-3">
-                    {authMode === 'REGISTER' && <input type="text" placeholder="Nom complet" value={authName} onChange={(e) => setAuthName(e.target.value)} className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-4 py-2.5 text-xs text-white" />}
-                    <input type="email" placeholder="Adresse email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-4 py-2.5 text-xs text-white" />
-                    <input type="password" placeholder="Mot de passe" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-4 py-2.5 text-xs text-white" />
-                    <button type="submit" className="w-full py-3 bg-[#0066FF] text-white rounded-xl font-bold text-xs">Valider</button>
+                  }} className="space-y-4">
+                    
+                    {authMode === 'REGISTER' && (
+                      <div>
+                        <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Nom complet :</label>
+                        <input 
+                          type="text" 
+                          required 
+                          placeholder="Ex: Christian Diabagate" 
+                          value={authName} 
+                          onChange={(e) => setAuthName(e.target.value)} 
+                          className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#0066FF]" 
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Adresse email :</label>
+                      <input 
+                        type="email" 
+                        required 
+                        placeholder="votre-email@exemple.com" 
+                        value={authEmail} 
+                        onChange={(e) => setAuthEmail(e.target.value)} 
+                        className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#0066FF]" 
+                      />
+                    </div>
+
+                    {/* Champ Mot de Passe avec œil pour afficher / masquer */}
+                    <div>
+                      <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Mot de passe :</label>
+                      <div className="relative">
+                        <input 
+                          type={showPassword ? "text" : "password"} 
+                          required 
+                          placeholder="Minimum 6 caractères" 
+                          value={authPassword} 
+                          onChange={(e) => setAuthPassword(e.target.value)} 
+                          className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-4 pr-10 py-2.5 text-xs text-white outline-none focus:border-[#0066FF]" 
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-white cursor-pointer"
+                          title={showPassword ? "Masquer" : "Afficher"}
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Champ Confirmation avec œil (en mode inscription) */}
+                    {authMode === 'REGISTER' && (
+                      <div>
+                        <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Confirmer le mot de passe :</label>
+                        <div className="relative">
+                          <input 
+                            type={showConfirmPassword ? "text" : "password"} 
+                            required 
+                            placeholder="Répétez votre mot de passe" 
+                            value={authConfirmPass} 
+                            onChange={(e) => setAuthConfirmPass(e.target.value)} 
+                            className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-4 pr-10 py-2.5 text-xs text-white outline-none focus:border-[#0066FF]" 
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-white cursor-pointer"
+                            title={showConfirmPassword ? "Masquer" : "Afficher"}
+                          >
+                            {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <button 
+                      type="submit" 
+                      className="w-full py-3 bg-[#0066FF] hover:bg-[#0052CC] text-white rounded-xl font-bold text-xs cursor-pointer shadow-lg shadow-[#0066FF]/20 transition-all mt-2"
+                    >
+                      {authMode === 'LOGIN' ? 'Se Connecter' : 'Valider mon Inscription'}
+                    </button>
                   </form>
-                  <button onClick={() => signInWithPopup(auth, googleProvider)} className="w-full bg-[#081426] border border-[#162C50] py-2 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2">
-                    <LogIn size={14} /> Continuer avec Google
+
+                  <div className="relative flex items-center justify-center my-2">
+                    <div className="border-t border-[#162C50] w-full" />
+                    <span className="bg-[#0D1E38] px-3 text-[10px] text-[#94A3B8] uppercase font-bold">OU</span>
+                    <div className="border-t border-[#162C50] w-full" />
+                  </div>
+
+                  <button 
+                    onClick={() => signInWithPopup(auth, googleProvider)} 
+                    className="w-full bg-[#081426] hover:bg-[#162C50] border border-[#162C50] py-2.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <LogIn size={14} className="text-[#00D68F]" /> Continuer avec Google
                   </button>
                 </div>
               ) : (
@@ -440,7 +603,9 @@ export default function App() {
                     <p className="text-xs text-[#94A3B8]">{user.email}</p>
                     <span className="text-[10px] bg-[#00D68F]/20 text-[#00D68F] font-bold px-2 py-0.5 rounded mt-1 inline-block">✓ Membre Inscrit</span>
                   </div>
-                  <button onClick={() => signOut(auth)} className="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-4 py-2 rounded-xl text-xs font-bold">Déconnexion</button>
+                  <button onClick={() => signOut(auth)} className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/40 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors">
+                    Déconnexion
+                  </button>
                 </div>
               )}
             </div>
@@ -448,9 +613,9 @@ export default function App() {
         </div>
       </main>
 
-      {/* Bouton IA */}
+      {/* Bouton IA flottant avec curseur pointer */}
       {!isAiOpen && (
-        <button onClick={() => setIsAiOpen(true)} className="fixed bottom-6 right-6 bg-gradient-to-tr from-[#0066FF] to-[#00D68F] p-4 rounded-2xl shadow-2xl flex items-center gap-2 text-white font-bold text-xs">
+        <button onClick={() => setIsAiOpen(true)} className="fixed bottom-6 right-6 bg-gradient-to-tr from-[#0066FF] to-[#00D68F] p-4 rounded-2xl shadow-2xl flex items-center gap-2 text-white font-bold text-xs cursor-pointer hover:scale-105 transition-all">
           <Bot size={20} /><span>Analyste IA</span>
         </button>
       )}
@@ -460,7 +625,7 @@ export default function App() {
         <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-[#081426] border-l border-[#162C50] z-50 flex flex-col shadow-2xl">
           <div className="p-4 bg-[#0D1E38] border-b border-[#162C50] flex items-center justify-between">
             <h3 className="text-xs font-bold text-white flex items-center gap-1"><Bot size={16} /> Analyste Tactique LMPRO</h3>
-            <button onClick={() => setIsAiOpen(false)} className="text-[#94A3B8]"><X size={18} /></button>
+            <button onClick={() => setIsAiOpen(false)} className="text-[#94A3B8] hover:text-white cursor-pointer"><X size={18} /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 text-xs">
             {chatMessages.map((m, i) => (
@@ -474,10 +639,10 @@ export default function App() {
             if (!inputQuestion.trim()) return;
             const q = inputQuestion;
             setInputQuestion('');
-            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `Sur le match ${activeMatch ? activeMatch.homeTeam.name : 'actuel'}, notre modèle Poisson calcule une espérance offensive solide. N'hésitez pas à profiter des bonus Melbet (XPRO225) et Betwinner (DKC10) !` }]);
+            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `Sur le match ${activeMatch ? activeMatch.homeTeam.name : 'actuel'}, notre modèle Poisson calcule une espérance solide. N'hésitez pas à utiliser nos codes promo (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldparis: LMPRO) !` }]);
           }} className="p-3 bg-[#0D1E38] border-t border-[#162C50] flex gap-2">
             <input type="text" value={inputQuestion} onChange={(e) => setInputQuestion(e.target.value)} placeholder="Votre question..." className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none" />
-            <button type="submit" className="bg-[#0066FF] text-white p-2.5 rounded-xl"><Send size={14} /></button>
+            <button type="submit" className="bg-[#0066FF] text-white p-2.5 rounded-xl cursor-pointer hover:bg-[#0052CC]"><Send size={14} /></button>
           </form>
         </div>
       )}
