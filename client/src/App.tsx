@@ -38,9 +38,8 @@ import {
   Crown
 } from 'lucide-react';
 
-// IMPORTATION DES COMPOSANTS MODULAIRES SANS OUBLI
 import { StickyPromoBar } from './components/StickyPromoBar';
-import { PartnersView, INITIAL_PARTNERS, getPartnerTheme } from './components/PartnersView';
+import { PartnersView, INITIAL_PARTNERS } from './components/PartnersView';
 import { MatchAnalysisView } from './components/MatchAnalysisView';
 import { AdminConsoleView } from './components/AdminConsoleView';
 import { HistoryView } from './components/HistoryView';
@@ -80,6 +79,7 @@ export interface Match {
   };
 }
 
+// LISTE DE COMPÉTITIONS ÉLARGIE AVEC AFRIQUE ET COUPES
 const LEAGUES_LIST = [
   { code: 'ALL', name: 'Toutes les Compétitions', flag: '🌍' },
   { code: 'CAF', name: 'Afrique & CAF', flag: '🌍' },
@@ -96,8 +96,8 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // DONNÉES RÉELLES : PURGÉES DE FAUX MATCHS
   const [apiMatches, setApiMatches] = useState<Match[]>([]);
+  const [realLiveOdds, setRealLiveOdds] = useState<Record<string, any>>({});
   const [manualMatches, setManualMatches] = useState<Match[]>(() => {
     const s = localStorage.getItem('lmpro_manual_matches'); return s ? JSON.parse(s) : [];
   });
@@ -128,7 +128,7 @@ export default function App() {
     const s = localStorage.getItem('lmpro_admin_team'); return s ? JSON.parse(s) : [];
   });
 
-  // Partenaires et codes promos
+  // Partenaires
   const [partners, setPartners] = useState<any[]>(() => {
     const s = localStorage.getItem('lmpro_partners'); return s ? JSON.parse(s) : INITIAL_PARTNERS;
   });
@@ -137,7 +137,7 @@ export default function App() {
   // IA Chatbot
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([
-    { role: 'bot', text: 'Bonjour ! Je suis votre analyste tactique LMPRO. Posez-moi vos questions sur les rencontres actives !' }
+    { role: 'bot', text: 'Bonjour ! Je suis votre analyste tactique LMPRO. Posez-moi vos questions sur les matchs du jour ou sur notre historique certifié !' }
   ]);
   const [inputQuestion, setInputQuestion] = useState('');
 
@@ -160,9 +160,9 @@ export default function App() {
     return onAuthStateChanged(auth, (u) => setUser(u));
   }, []);
 
-  // CHARGEMENT DIRECT DES VRAIS MATCHS DEPUIS L'API OFFICIELLE
+  // CHARGEMENT DE L'AGRÉGATEUR MULTI-APIS
   useEffect(() => {
-    async function loadLiveMatches() {
+    async function loadMultiApiData() {
       try {
         const res = await fetch('/api/matches');
         if (res.ok) {
@@ -170,15 +170,16 @@ export default function App() {
           if (data.matches && data.matches.length > 0) {
             setApiMatches(data.matches);
             setIsLiveApi(true);
-            return;
+          }
+          if (data.liveOdds) {
+            setRealLiveOdds(data.liveOdds);
           }
         }
       } catch (err) {
-        console.log("Relais actif : attente de publication manuelle ou d'API.");
+        console.log("Mode direct multi-api actif.");
       }
-      setIsLiveApi(false);
     }
-    loadLiveMatches();
+    loadMultiApiData();
   }, []);
 
   const handleCopyCode = (id: string, code: string) => {
@@ -263,11 +264,10 @@ export default function App() {
     r.readAsDataURL(file);
   };
 
-  // AJOUT D'UN MATCH MANUEL PAR L'ADMINISTRATEUR
   const handleAddManualMatch = (data: any) => {
     const newM: Match = {
       id: Date.now(),
-      competition: { name: data.comp, code: data.comp === 'Serie A' ? 'SA' : data.comp === 'Premier League' ? 'PL' : 'PD' },
+      competition: { name: data.comp, code: data.comp === 'Afrique & CAF' ? 'CAF' : data.comp === 'Serie A' ? 'SA' : data.comp === 'Premier League' ? 'PL' : 'PD' },
       utcDate: new Date().toISOString(),
       status: 'TIMED',
       homeTeam: { name: data.home, shortName: data.home },
@@ -299,7 +299,7 @@ export default function App() {
     setTimeout(() => setAdminNotification(null), 3500);
   };
 
-  // CALCULS PURS DE POISSON SUR LE MATCH SÉLECTIONNÉ
+  // ANALYSE DE POISSON
   const getMatchAnalysis = (m: Match | null) => {
     if (!m) return null;
     if (m.isManual && m.customAnalysis) {
@@ -330,7 +330,13 @@ export default function App() {
     };
   };
 
+  // RÉCUPÉRATION DES COTES EN DIRECT DU FLUX THE ODDS API OU DU CALCUL DE POISSON
   const getMatchOdds = (m: Match | null) => {
+    if (!m) return null;
+    const matchKey = `${m.homeTeam?.name?.toLowerCase()}_${m.awayTeam?.name?.toLowerCase()}`;
+    if (realLiveOdds[matchKey]) {
+      return realLiveOdds[matchKey];
+    }
     const a = getMatchAnalysis(m);
     if (!a) return null;
     return {
@@ -340,7 +346,6 @@ export default function App() {
     };
   };
 
-  // TOUS LES MATCHS RÉELS (MANUELS + API)
   const allRealMatches = [...manualMatches, ...apiMatches];
 
   const filteredMatches = selectedLeagueFilter === 'ALL'
@@ -424,7 +429,7 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Zone Principale */}
+      {/* Main Area */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         <StickyPromoBar 
           onCopyCode={handleCopyCode} 
@@ -454,16 +459,16 @@ export default function App() {
                 <LineChart size={32} className="mx-auto text-[#0066FF]" />
                 <h2 className="text-base font-bold text-white">Aucun match sélectionné pour l'analyse</h2>
                 <p className="text-xs text-[#94A3B8]">
-                  Consultez la liste des rencontres sur le tableau de bord ou publiez un match dans la console d'administration.
+                  Consultez la liste des rencontres ou publiez un match dans la console d'administration.
                 </p>
                 <button onClick={() => navigateTo('dashboard')} className="px-4 py-2 bg-[#0066FF] text-white text-xs font-bold rounded-xl cursor-pointer">
-                  Voir les matchs →
+                  Voir les rencontres →
                 </button>
               </div>
             )
           )}
 
-          {/* PAGE HISTORIQUE CERTIFIÉ (PURGÉ DE FAUX MATCHS) */}
+          {/* PAGE HISTORIQUE CERTIFIÉ */}
           {currentPage === 'history' && <HistoryView />}
 
           {/* PAGE CONSOLE ADMIN */}
@@ -496,14 +501,14 @@ export default function App() {
               <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex justify-between items-center">
                 <div>
                   <h1 className="text-2xl font-black text-white">Plateforme d'Analyse Footballistique</h1>
-                  <p className="text-xs text-[#94A3B8] mt-1">« Analysez mieux. Comprenez le football. » — Données 100% réelles.</p>
+                  <p className="text-xs text-[#94A3B8] mt-1">« Analysez mieux. Comprenez le football. » — Multi-APIs Europe & Afrique.</p>
                 </div>
                 <button onClick={() => setIsAiOpen(true)} className="bg-gradient-to-r from-[#0066FF] to-[#00D68F] hover:opacity-90 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#0066FF]/20">
                   <Sparkles size={14} /> Analyste IA
                 </button>
               </div>
 
-              {/* Filtres Championnats */}
+              {/* Barre de sélection élargie (Afrique, Coupes, Europe) */}
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                 {LEAGUES_LIST.map((l) => (
                   <button
@@ -518,11 +523,11 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Matchs du jour réels ou écran de relais */}
+              {/* Matchs du jour réels */}
               <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
-                    Rencontres : {selectedLeagueFilter === 'ALL' ? 'Tous les Championnats' : selectedLeagueFilter}
+                    Rencontres : {selectedLeagueFilter === 'ALL' ? 'Toutes les Compétitions' : selectedLeagueFilter}
                   </h2>
                   <span className="text-xs text-[#00D68F] font-bold">{filteredMatches.length} match(s) actif(s)</span>
                 </div>
@@ -533,9 +538,9 @@ export default function App() {
                       <CalendarDays size={26} />
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-white">Aucun match officiel programmé à cet instant</h3>
+                      <h3 className="text-base font-bold text-white">Aucun match programmé à cet instant</h3>
                       <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
-                        L'API n'a détecté aucune rencontre en cours pour ce créneau horaire.
+                        Les APIs n'ont détecté aucune rencontre pour ce filtre.
                       </p>
                     </div>
 
@@ -828,7 +833,7 @@ export default function App() {
             const q = inputQuestion;
             setInputQuestion('');
             const currentName = activeMatch ? `${activeMatch.homeTeam.name} vs ${activeMatch.awayTeam.name}` : 'les rencontres actives';
-            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après nos données réelles sur ${currentName}, nous surveillons de près l'espérance de buts. Utilisez les codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldparis: LMPRO) pour vos mises !` }]);
+            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après nos données réelles sur ${currentName}, nous surveillons de près l'espérance de buts. Utilisez les codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldpari: XPRO225) pour vos mises !` }]);
           }} className="p-3 bg-[#0D1E38] border-t border-[#162C50] flex gap-2">
             <input type="text" value={inputQuestion} onChange={(e) => setInputQuestion(e.target.value)} placeholder="Votre question..." className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none" />
             <button type="submit" className="bg-[#0066FF] text-white p-2.5 rounded-xl cursor-pointer hover:bg-[#0052CC]"><Send size={14} /></button>
