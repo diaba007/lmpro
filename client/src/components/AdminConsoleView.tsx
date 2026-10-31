@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { 
   Crown, 
-  ShieldCheck, 
-  ShieldAlert, 
   Lock, 
   Key, 
   FolderOpen, 
@@ -10,7 +8,10 @@ import {
   PlusCircle, 
   Trash2, 
   UserPlus,
-  Settings
+  Settings,
+  ShieldAlert,
+  CheckCircle,
+  Archive
 } from 'lucide-react';
 import { getPartnerTheme } from './PartnersView';
 
@@ -33,6 +34,9 @@ interface AdminConsoleViewProps {
   onChangeMasterPassword: (newPass: string) => void;
   onSyncApi: () => void;
   onPurgeCache: () => void;
+  // NOUVEAU : ARCHIVAGE D'UN MATCH TERMINÉ AVEC SCORE
+  availableMatches: any[];
+  onArchiveMatch: (record: any) => void;
 }
 
 export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
@@ -55,9 +59,17 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
   const [delName, setDelName] = useState('');
   const [delEmail, setDelEmail] = useState('');
 
-  // Gestion des modifications de codes promo et liens partenaires
+  // Gestion des modifications de codes promo et liens
   const [partnerCodes, setPartnerCodes] = useState<Record<string, string>>({});
   const [partnerUrls, setPartnerUrls] = useState<Record<string, string>>({});
+
+  // NOUVEAU : FORMULAIRE D'ARCHIVAGE AVEC SCORE FINAL
+  const [archiveMatchTitle, setArchiveMatchTitle] = useState('');
+  const [archiveComp, setArchiveComp] = useState('Serie A');
+  const [archiveSelection, setArchiveSelection] = useState('Plus de 1.5 but');
+  const [archiveOdds, setArchiveOdds] = useState('1.75');
+  const [archiveHomeScore, setArchiveHomeScore] = useState(2);
+  const [archiveAwayScore, setArchiveAwayScore] = useState(0);
 
   const submitLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +101,46 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
     props.onAddAdmin(delName.trim(), delEmail.trim());
     setDelName('');
     setDelEmail('');
+  };
+
+  // SOUMISSION DE L'ARCHIVAGE AVEC ARBITRAGE AUTOMATIQUE DU STATUT (GAGNÉ / PERDU)
+  const submitArchiveMatch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!archiveMatchTitle.trim()) {
+      alert("Veuillez renseigner l'affiche du match.");
+      return;
+    }
+
+    const hScore = Number(archiveHomeScore);
+    const aScore = Number(archiveAwayScore);
+    const totalGoals = hScore + aScore;
+
+    // Arbitrage mathématique automatique du pronostic
+    let status: 'WON' | 'LOST' = 'LOST';
+
+    if (archiveSelection.includes('Plus de 1.5') && totalGoals > 1.5) status = 'WON';
+    else if (archiveSelection.includes('Plus de 2.5') && totalGoals > 2.5) status = 'WON';
+    else if (archiveSelection.includes('Moins de 2.5') && totalGoals < 2.5) status = 'WON';
+    else if (archiveSelection.includes('Moins de 3.5') && totalGoals < 3.5) status = 'WON';
+    else if (archiveSelection.includes('BTTS') && hScore > 0 && aScore > 0) status = 'WON';
+    else if (archiveSelection.includes('Victoire') && archiveSelection.includes('1') && hScore > aScore) status = 'WON';
+    else if (archiveSelection.includes('Victoire') && archiveSelection.includes('2') && aScore > hScore) status = 'WON';
+    else if (archiveSelection.includes('Nul') && hScore === aScore) status = 'WON';
+    else if (archiveSelection.includes('1X') && hScore >= aScore) status = 'WON';
+    else if (archiveSelection.includes('X2') && aScore >= hScore) status = 'WON';
+
+    props.onArchiveMatch({
+      id: Date.now().toString(),
+      date: new Date().toLocaleDateString('fr-FR'),
+      match: archiveMatchTitle.trim(),
+      competition: archiveComp,
+      selection: archiveSelection,
+      predictedOdds: archiveOdds || '1.70',
+      finalScore: `${hScore} - ${aScore}`,
+      status
+    });
+
+    setArchiveMatchTitle('');
   };
 
   if (!props.isAdminAuthenticated) {
@@ -180,6 +232,133 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
         </div>
       </div>
 
+      {/* NOUVEAU MODULE : CLÔTURER & ARCHIVER UN MATCH DANS L'HISTORIQUE CERTIFIÉ */}
+      <div className="bg-[#0D1E38] border border-amber-500/40 rounded-2xl p-6 space-y-4 shadow-xl">
+        <div className="flex items-center gap-2">
+          <Archive size={20} className="text-amber-400" />
+          <div>
+            <h2 className="text-base font-bold text-white">Clôturer & Archiver un Match Terminé dans l'Historique</h2>
+            <p className="text-xs text-[#94A3B8]">
+              Entrez le score final d'une rencontre terminée. L'application arbitrera automatiquement le pronostic (Validé / Échoué).
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={submitArchiveMatch} className="space-y-4 pt-2">
+          {/* Sélection rapide parmi les matchs existants */}
+          {props.availableMatches.length > 0 && (
+            <div>
+              <label className="text-[10px] text-[#94A3B8] uppercase font-bold block mb-1">Sélection rapide parmi les matchs d'aujourd'hui :</label>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const found = props.availableMatches.find(m => m.id.toString() === e.target.value);
+                    if (found) {
+                      setArchiveMatchTitle(`${found.homeTeam.name} vs ${found.awayTeam.name}`);
+                      setArchiveComp(found.competition?.name || 'Football');
+                    }
+                  }
+                }}
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-400"
+              >
+                <option value="">-- Choisir un match de la liste --</option>
+                {props.availableMatches.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.homeTeam.name} vs {m.awayTeam.name} ({m.competition?.name})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-[11px] text-[#94A3B8] font-bold block mb-1">Affiche de la rencontre :</label>
+              <input
+                type="text"
+                required
+                value={archiveMatchTitle}
+                onChange={(e) => setArchiveMatchTitle(e.target.value)}
+                placeholder="Ex: AC Milan vs Bologna FC"
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-400"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] text-[#94A3B8] font-bold block mb-1">Compétition :</label>
+              <input
+                type="text"
+                value={archiveComp}
+                onChange={(e) => setArchiveComp(e.target.value)}
+                placeholder="Ex: Serie A"
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-400"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] text-[#94A3B8] font-bold block mb-1">Sélection / Pronostic évalué :</label>
+              <select
+                value={archiveSelection}
+                onChange={(e) => setArchiveSelection(e.target.value)}
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-400"
+              >
+                <option value="Plus de 1.5 but">Plus de 1.5 but</option>
+                <option value="Plus de 2.5 buts">Plus de 2.5 buts</option>
+                <option value="Moins de 2.5 buts">Moins de 2.5 buts</option>
+                <option value="BTTS - Les deux marquent">BTTS - Les deux marquent</option>
+                <option value="Victoire Domicile (1)">Victoire Domicile (1)</option>
+                <option value="Victoire Extérieur (2)">Victoire Extérieur (2)</option>
+                <option value="Double Chance 1X">Double Chance 1X</option>
+                <option value="Match Nul (X)">Match Nul (X)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-[#162C50]">
+            <div>
+              <label className="text-[10px] text-[#94A3B8] uppercase font-bold block mb-1">Score Équipe Domicile :</label>
+              <input
+                type="number"
+                min="0"
+                value={archiveHomeScore}
+                onChange={(e) => setArchiveHomeScore(Number(e.target.value))}
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white font-mono font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] text-[#94A3B8] uppercase font-bold block mb-1">Score Équipe Extérieur :</label>
+              <input
+                type="number"
+                min="0"
+                value={archiveAwayScore}
+                onChange={(e) => setArchiveAwayScore(Number(e.target.value))}
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white font-mono font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] text-[#94A3B8] uppercase font-bold block mb-1">Cote officielle du pronostic :</label>
+              <input
+                type="text"
+                value={archiveOdds}
+                onChange={(e) => setArchiveOdds(e.target.value)}
+                placeholder="Ex: 1.75"
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white font-mono font-bold"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full py-3 bg-gradient-to-r from-amber-400 to-yellow-500 hover:opacity-95 text-black font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <CheckCircle size={15} />
+            <span>Valider le Score & Archiver dans l'Historique Certifié</span>
+          </button>
+        </form>
+      </div>
+
       {/* 1. GESTION DES CODES PROMO & LIENS BOOKMAKERS */}
       <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 space-y-4">
         <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -248,7 +427,6 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
           <span className="text-xs text-[#94A3B8] font-mono">{props.adminTeam.length} délégué(s)</span>
         </div>
 
-        {/* Formulaire ajout délégué */}
         <form onSubmit={submitAddAdmin} className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#081426] p-4 rounded-xl border border-[#162C50]">
           <input
             type="text"
@@ -274,7 +452,6 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
           </button>
         </form>
 
-        {/* Liste des collaborateurs */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
@@ -327,7 +504,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
                 value={home}
                 onChange={(e) => setHome(e.target.value)}
                 placeholder="Ex: Real Madrid"
-                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#0066FF]"
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white"
               />
             </div>
             <div>
@@ -338,7 +515,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
                 value={away}
                 onChange={(e) => setAway(e.target.value)}
                 placeholder="Ex: Barcelone"
-                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#0066FF]"
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white"
               />
             </div>
             <div>
@@ -346,7 +523,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = (props) => {
               <select
                 value={comp}
                 onChange={(e) => setComp(e.target.value)}
-                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#0066FF]"
+                className="w-full bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white"
               >
                 <option value="Serie A">Serie A</option>
                 <option value="Premier League">Premier League</option>

@@ -42,7 +42,7 @@ import { StickyPromoBar } from './components/StickyPromoBar';
 import { PartnersView, INITIAL_PARTNERS } from './components/PartnersView';
 import { MatchAnalysisView } from './components/MatchAnalysisView';
 import { AdminConsoleView } from './components/AdminConsoleView';
-import { HistoryView } from './components/HistoryView';
+import { HistoryView, INITIAL_HISTORY, PredictionHistoryRecord } from './components/HistoryView';
 
 // --- CONFIGURATION FIREBASE ---
 const firebaseConfig = {
@@ -79,11 +79,8 @@ export interface Match {
   };
 }
 
-// LISTE DE COMPÉTITIONS ÉLARGIE AVEC AFRIQUE ET COUPES
 const LEAGUES_LIST = [
-  { code: 'ALL', name: 'Toutes les Compétitions', flag: '🌍' },
-  { code: 'CAF', name: 'Afrique & CAF', flag: '🌍' },
-  { code: 'CUP', name: 'Coupes Nationales', flag: '🏆' },
+  { code: 'ALL', name: 'Tous les Championnats', flag: '🌍' },
   { code: 'SA', name: 'Serie A', flag: '🇮🇹' },
   { code: 'PL', name: 'Premier League', flag: '🇬🇧' },
   { code: 'PD', name: 'La Liga', flag: '🇪🇸' },
@@ -96,14 +93,20 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
+  // DONNÉES RÉELLES
   const [apiMatches, setApiMatches] = useState<Match[]>([]);
-  const [realLiveOdds, setRealLiveOdds] = useState<Record<string, any>>({});
   const [manualMatches, setManualMatches] = useState<Match[]>(() => {
     const s = localStorage.getItem('lmpro_manual_matches'); return s ? JSON.parse(s) : [];
   });
   const [isLiveApi, setIsLiveApi] = useState<boolean>(false);
   const [selectedLeagueFilter, setSelectedLeagueFilter] = useState('ALL');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+
+  // HISTORIQUE CERTIFIÉ PERSISTANT
+  const [historyRecords, setHistoryRecords] = useState<PredictionHistoryRecord[]>(() => {
+    const saved = localStorage.getItem('lmpro_certified_history');
+    return saved ? JSON.parse(saved) : INITIAL_HISTORY;
+  });
 
   const [activeMarket, setActiveMarket] = useState<'ALL' | '1X2' | 'GOALS' | 'BTTS'>('ALL');
   const [user, setUser] = useState<any>(null);
@@ -128,7 +131,7 @@ export default function App() {
     const s = localStorage.getItem('lmpro_admin_team'); return s ? JSON.parse(s) : [];
   });
 
-  // Partenaires
+  // Partenaires et codes promos
   const [partners, setPartners] = useState<any[]>(() => {
     const s = localStorage.getItem('lmpro_partners'); return s ? JSON.parse(s) : INITIAL_PARTNERS;
   });
@@ -137,7 +140,7 @@ export default function App() {
   // IA Chatbot
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([
-    { role: 'bot', text: 'Bonjour ! Je suis votre analyste tactique LMPRO. Posez-moi vos questions sur les matchs du jour ou sur notre historique certifié !' }
+    { role: 'bot', text: 'Bonjour ! Je suis votre analyste tactique LMPRO. Posez-moi vos questions sur les rencontres actives !' }
   ]);
   const [inputQuestion, setInputQuestion] = useState('');
 
@@ -160,9 +163,9 @@ export default function App() {
     return onAuthStateChanged(auth, (u) => setUser(u));
   }, []);
 
-  // CHARGEMENT DE L'AGRÉGATEUR MULTI-APIS
+  // CHARGEMENT DIRECT DES VRAIS MATCHS DEPUIS L'API OFFICIELLE
   useEffect(() => {
-    async function loadMultiApiData() {
+    async function loadLiveMatches() {
       try {
         const res = await fetch('/api/matches');
         if (res.ok) {
@@ -170,16 +173,15 @@ export default function App() {
           if (data.matches && data.matches.length > 0) {
             setApiMatches(data.matches);
             setIsLiveApi(true);
-          }
-          if (data.liveOdds) {
-            setRealLiveOdds(data.liveOdds);
+            return;
           }
         }
       } catch (err) {
-        console.log("Mode direct multi-api actif.");
+        console.log("Relais actif : attente de publication manuelle ou d'API.");
       }
+      setIsLiveApi(false);
     }
-    loadMultiApiData();
+    loadLiveMatches();
   }, []);
 
   const handleCopyCode = (id: string, code: string) => {
@@ -264,10 +266,19 @@ export default function App() {
     r.readAsDataURL(file);
   };
 
+  // NOUVELLE ACTION : ARCHIVER UN MATCH DANS L'HISTORIQUE CERTIFIÉ
+  const handleArchiveMatch = (record: PredictionHistoryRecord) => {
+    const updated = [record, ...historyRecords];
+    setHistoryRecords(updated);
+    localStorage.setItem('lmpro_certified_history', JSON.stringify(updated));
+    setAdminNotification(`Le match ${record.match} a été clôturé (${record.finalScore}) et archivé avec succès (${record.status === 'WON' ? 'Validé ✅' : 'Échoué ❌'}) !`);
+    setTimeout(() => setAdminNotification(null), 4000);
+  };
+
   const handleAddManualMatch = (data: any) => {
     const newM: Match = {
       id: Date.now(),
-      competition: { name: data.comp, code: data.comp === 'Afrique & CAF' ? 'CAF' : data.comp === 'Serie A' ? 'SA' : data.comp === 'Premier League' ? 'PL' : 'PD' },
+      competition: { name: data.comp, code: data.comp === 'Serie A' ? 'SA' : data.comp === 'Premier League' ? 'PL' : 'PD' },
       utcDate: new Date().toISOString(),
       status: 'TIMED',
       homeTeam: { name: data.home, shortName: data.home },
@@ -299,7 +310,6 @@ export default function App() {
     setTimeout(() => setAdminNotification(null), 3500);
   };
 
-  // ANALYSE DE POISSON
   const getMatchAnalysis = (m: Match | null) => {
     if (!m) return null;
     if (m.isManual && m.customAnalysis) {
@@ -330,13 +340,7 @@ export default function App() {
     };
   };
 
-  // RÉCUPÉRATION DES COTES EN DIRECT DU FLUX THE ODDS API OU DU CALCUL DE POISSON
   const getMatchOdds = (m: Match | null) => {
-    if (!m) return null;
-    const matchKey = `${m.homeTeam?.name?.toLowerCase()}_${m.awayTeam?.name?.toLowerCase()}`;
-    if (realLiveOdds[matchKey]) {
-      return realLiveOdds[matchKey];
-    }
     const a = getMatchAnalysis(m);
     if (!a) return null;
     return {
@@ -361,7 +365,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#081426] text-white flex flex-col md:flex-row font-sans relative">
-      
       {/* Topbar Mobile */}
       <div className="md:hidden bg-[#081426] border-b border-[#162C50] p-4 flex justify-between items-center">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('dashboard')}>
@@ -468,10 +471,10 @@ export default function App() {
             )
           )}
 
-          {/* PAGE HISTORIQUE CERTIFIÉ */}
-          {currentPage === 'history' && <HistoryView />}
+          {/* PAGE HISTORIQUE CERTIFIÉ (ALIMENTÉ PAR VOS ARBITRAGES RÉELS !) */}
+          {currentPage === 'history' && <HistoryView records={historyRecords} />}
 
-          {/* PAGE CONSOLE ADMIN */}
+          {/* PAGE CONSOLE ADMIN (AVEC LE MODULE D'ARCHIVAGE DES SCORES FINAUX) */}
           {currentPage === 'admin' && (
             <AdminConsoleView
               isAdminAuthenticated={isAdminAuthenticated}
@@ -492,6 +495,8 @@ export default function App() {
               onChangeMasterPassword={handleChangeMasterPassword}
               onSyncApi={() => {}}
               onPurgeCache={() => {}}
+              availableMatches={allRealMatches}
+              onArchiveMatch={handleArchiveMatch}
             />
           )}
 
@@ -501,14 +506,14 @@ export default function App() {
               <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex justify-between items-center">
                 <div>
                   <h1 className="text-2xl font-black text-white">Plateforme d'Analyse Footballistique</h1>
-                  <p className="text-xs text-[#94A3B8] mt-1">« Analysez mieux. Comprenez le football. » — Multi-APIs Europe & Afrique.</p>
+                  <p className="text-xs text-[#94A3B8] mt-1">« Analysez mieux. Comprenez le football. » — Données 100% réelles.</p>
                 </div>
                 <button onClick={() => setIsAiOpen(true)} className="bg-gradient-to-r from-[#0066FF] to-[#00D68F] hover:opacity-90 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#0066FF]/20">
                   <Sparkles size={14} /> Analyste IA
                 </button>
               </div>
 
-              {/* Barre de sélection élargie (Afrique, Coupes, Europe) */}
+              {/* Filtres Championnats */}
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                 {LEAGUES_LIST.map((l) => (
                   <button
@@ -540,7 +545,7 @@ export default function App() {
                     <div>
                       <h3 className="text-base font-bold text-white">Aucun match programmé à cet instant</h3>
                       <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
-                        Les APIs n'ont détecté aucune rencontre pour ce filtre.
+                        L'API n'a détecté aucune rencontre pour ce filtre.
                       </p>
                     </div>
 
