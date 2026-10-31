@@ -10,6 +10,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -38,11 +39,13 @@ import {
   Crown
 } from 'lucide-react';
 
+// IMPORTATION DES COMPOSANTS SANS ERREUR DE TYPE
 import { StickyPromoBar } from './components/StickyPromoBar';
 import { PartnersView, INITIAL_PARTNERS } from './components/PartnersView';
 import { MatchAnalysisView } from './components/MatchAnalysisView';
 import { AdminConsoleView } from './components/AdminConsoleView';
-import { HistoryView, INITIAL_HISTORY, PredictionHistoryRecord } from './components/HistoryView';
+import { HistoryView, INITIAL_HISTORY } from './components/HistoryView';
+import type { PredictionHistoryRecord } from './components/HistoryView';
 
 // --- CONFIGURATION FIREBASE ---
 const firebaseConfig = {
@@ -163,7 +166,7 @@ export default function App() {
     return onAuthStateChanged(auth, (u) => setUser(u));
   }, []);
 
-  // CHARGEMENT DIRECT DES VRAIS MATCHS DEPUIS L'API OFFICIELLE
+  // CHARGEMENT DIRECT DES VRAIS MATCHS DEPUIS L'API
   useEffect(() => {
     async function loadLiveMatches() {
       try {
@@ -266,12 +269,12 @@ export default function App() {
     r.readAsDataURL(file);
   };
 
-  // NOUVELLE ACTION : ARCHIVER UN MATCH DANS L'HISTORIQUE CERTIFIÉ
+  // ARCHIVER UN MATCH DANS L'HISTORIQUE CERTIFIÉ
   const handleArchiveMatch = (record: PredictionHistoryRecord) => {
     const updated = [record, ...historyRecords];
     setHistoryRecords(updated);
     localStorage.setItem('lmpro_certified_history', JSON.stringify(updated));
-    setAdminNotification(`Le match ${record.match} a été clôturé (${record.finalScore}) et archivé avec succès (${record.status === 'WON' ? 'Validé ✅' : 'Échoué ❌'}) !`);
+    setAdminNotification(`Le match ${record.match} a été clôturé (${record.finalScore}) et archivé (${record.status === 'WON' ? 'Validé ✅' : 'Échoué ❌'}) !`);
     setTimeout(() => setAdminNotification(null), 4000);
   };
 
@@ -365,6 +368,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#081426] text-white flex flex-col md:flex-row font-sans relative">
+      
       {/* Topbar Mobile */}
       <div className="md:hidden bg-[#081426] border-b border-[#162C50] p-4 flex justify-between items-center">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('dashboard')}>
@@ -471,10 +475,10 @@ export default function App() {
             )
           )}
 
-          {/* PAGE HISTORIQUE CERTIFIÉ (ALIMENTÉ PAR VOS ARBITRAGES RÉELS !) */}
+          {/* PAGE HISTORIQUE CERTIFIÉ */}
           {currentPage === 'history' && <HistoryView records={historyRecords} />}
 
-          {/* PAGE CONSOLE ADMIN (AVEC LE MODULE D'ARCHIVAGE DES SCORES FINAUX) */}
+          {/* PAGE CONSOLE ADMIN */}
           {currentPage === 'admin' && (
             <AdminConsoleView
               isAdminAuthenticated={isAdminAuthenticated}
@@ -506,7 +510,7 @@ export default function App() {
               <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex justify-between items-center">
                 <div>
                   <h1 className="text-2xl font-black text-white">Plateforme d'Analyse Footballistique</h1>
-                  <p className="text-xs text-[#94A3B8] mt-1">« Analysez mieux. Comprenez le football. » — Données 100% réelles.</p>
+                  <p className="text-xs text-[#94A3B8] mt-1">« Analysez mieux. Comprenez le football. » — Données réelles & vérifiées.</p>
                 </div>
                 <button onClick={() => setIsAiOpen(true)} className="bg-gradient-to-r from-[#0066FF] to-[#00D68F] hover:opacity-90 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#0066FF]/20">
                   <Sparkles size={14} /> Analyste IA
@@ -545,7 +549,7 @@ export default function App() {
                     <div>
                       <h3 className="text-base font-bold text-white">Aucun match programmé à cet instant</h3>
                       <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
-                        L'API n'a détecté aucune rencontre pour ce filtre.
+                        L'API n'a détecté aucune rencontre pour ce créneau horaire.
                       </p>
                     </div>
 
