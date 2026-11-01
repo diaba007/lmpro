@@ -91,7 +91,7 @@ const LEAGUES_LIST = [
   { code: 'CL', name: 'Champions League', flag: '🇪🇺' }
 ];
 
-// BASE DE DONNÉES DE PUISSANCE ÉTENDUE
+// MOTEUR D'INDICE DE PUISSANCE & FORME DES ÉQUIPES
 const TEAM_RATINGS: Record<string, { rating: number; form: ('W' | 'D' | 'L')[] }> = {
   'inter': { rating: 92, form: ['W', 'W', 'W', 'D', 'W'] },
   'manchester city': { rating: 95, form: ['W', 'W', 'W', 'W', 'D'] },
@@ -123,23 +123,18 @@ const TEAM_RATINGS: Record<string, { rating: number; form: ('W' | 'D' | 'L')[] }
   'excelsior': { rating: 67, form: ['L', 'D', 'L', 'L', 'W'] },
 };
 
-// CALCUL D'INDICE UNIQUE ET NON-RÉPÉTITIF POUR CHAQUE ÉQUIPE
 function getTeamStats(name: string) {
   const clean = (name || '').toLowerCase();
   for (const [key, data] of Object.entries(TEAM_RATINGS)) {
     if (clean.includes(key)) return data;
   }
-
-  // Hash déterministe pour donner à chaque club inconnu une forme et une note variées
   let hash = 0;
   for (let i = 0; i < clean.length; i++) {
     hash = (hash << 5) - hash + clean.charCodeAt(i);
     hash |= 0;
   }
   const posHash = Math.abs(hash);
-  const rating = 66 + (posHash % 16); // Note entre 66 et 82
-
-  // Forme variée selon le nom
+  const rating = 66 + (posHash % 16);
   const formOptions: ('W' | 'D' | 'L')[][] = [
     ['W', 'W', 'D', 'L', 'W'],
     ['L', 'W', 'D', 'W', 'L'],
@@ -148,9 +143,7 @@ function getTeamStats(name: string) {
     ['D', 'W', 'L', 'D', 'W'],
     ['L', 'D', 'L', 'L', 'D']
   ];
-  const form = formOptions[posHash % formOptions.length];
-
-  return { rating, form };
+  return { rating, form: formOptions[posHash % formOptions.length] };
 }
 
 export default function App() {
@@ -369,7 +362,6 @@ export default function App() {
     setTimeout(() => setAdminNotification(null), 3500);
   };
 
-  // CALCUL STATISTIQUE RÉALISTE ET DIVERSIFIÉ
   const getMatchAnalysis = (m: Match | null) => {
     if (!m) return null;
     if (m.isManual && m.customAnalysis) {
@@ -459,26 +451,51 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#081426] text-white flex flex-col md:flex-row font-sans relative">
       
-      {/* Topbar Mobile */}
-      <div className="md:hidden bg-[#081426] border-b border-[#162C50] p-4 flex justify-between items-center">
+      {/* Topbar Mobile avec Logo Officiel */}
+      <div className="md:hidden bg-[#081426] border-b border-[#162C50] p-3 flex justify-between items-center">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('dashboard')}>
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#0066FF] to-[#00D68F] flex items-center justify-center font-black text-white text-sm">LM</div>
-          <span className="font-extrabold text-white text-lg tracking-wider">LMPRO</span>
+          <img 
+            src="/logo.png" 
+            alt="LMPRO Logo" 
+            className="h-10 w-auto object-contain drop-shadow" 
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+              (e.target as HTMLElement).parentElement!.innerHTML = '<div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#0066FF] to-[#00D68F] flex items-center justify-center font-black text-white text-sm">LM</div>';
+            }}
+          />
+          <span className="font-extrabold text-white text-base tracking-wider">LMPRO</span>
         </div>
         <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-[#94A3B8] cursor-pointer p-1">
           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
-      {/* Menu Latéral */}
+      {/* Menu Latéral Desktop avec Logo Officiel Grand Format */}
       <aside className={`${mobileMenuOpen ? 'block' : 'hidden'} md:flex flex-col justify-between w-full md:w-64 bg-[#081426] border-r border-[#162C50] shrink-0`}>
         <div>
-          <div className="p-6 border-b border-[#162C50] flex items-center space-x-3 cursor-pointer" onClick={() => navigateTo('dashboard')}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0066FF] to-[#00D68F] flex items-center justify-center font-black text-white text-xl shadow-lg">LM</div>
-            <div>
-              <div className="text-xl font-extrabold text-white flex items-center gap-1.5">LMPRO <span className="w-2 h-2 rounded-full bg-[#00D68F] animate-pulse" /></div>
-              <p className="text-[10px] text-[#94A3B8]">Intelligence & Stats Football</p>
+          {/* ZONE LOGO OFFICIEL AVEC EFFET COURONNE & DESIGN PRESTIGE */}
+          <div 
+            className="p-5 border-b border-[#162C50] flex flex-col items-center justify-center text-center cursor-pointer group transition-all"
+            onClick={() => navigateTo('dashboard')}
+          >
+            <div className="relative">
+              <img 
+                src="/logo.png" 
+                alt="LMPRO Logo" 
+                className="h-16 w-auto max-w-[190px] object-contain drop-shadow-xl transition-transform duration-300 group-hover:scale-105"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                  (e.target as HTMLElement).parentElement!.innerHTML = '<div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#0066FF] to-[#00D68F] flex items-center justify-center font-black text-white text-xl shadow-lg">LM</div>';
+                }}
+              />
             </div>
+            <div className="flex items-center gap-1.5 mt-2">
+              <span className="text-sm font-black tracking-widest text-white">LMPRO</span>
+              <span className="w-2 h-2 rounded-full bg-[#00D68F] animate-pulse" />
+            </div>
+            <p className="text-[10px] text-amber-300 font-bold tracking-tight mt-0.5">
+              Analysez • Prédisez • Gagnez !
+            </p>
           </div>
 
           <nav className="p-4 space-y-1">
@@ -534,7 +551,6 @@ export default function App() {
           onNavigateToPartners={() => navigateTo('partners')} 
         />
 
-        {/* CORRECTION ESPACEMENT : pt-6 ÉVITE DE CACHER LE HAUT DES CARTES SOUS LE RUBAN */}
         <div className="p-6 md:p-8 pt-6 max-w-7xl mx-auto w-full space-y-6">
           {/* Bouton retour */}
           {currentPage !== 'dashboard' && (
@@ -695,7 +711,7 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE PRONOSTICS PRO (CORRECTION DÉBORDEMENT PASTILLES DE FORME) */}
+          {/* PAGE PRONOSTICS PRO */}
           {currentPage === 'predictions' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -732,7 +748,6 @@ export default function App() {
                     const a = getMatchAnalysis(m);
                     if (!a) return null;
 
-                    // DÉTERMINATION INTELLIGENTE ET VARIÉE DU PRONOSTIC
                     let pick = '';
                     let prob = 0;
                     let type: '1X2' | 'GOALS' | 'BTTS' = '1X2';
@@ -786,7 +801,7 @@ export default function App() {
                             {m.homeTeam.name} <span className="text-[#94A3B8] font-normal">vs</span> {m.awayTeam.name}
                           </div>
 
-                          {/* CORRECTION DU DÉBORDEMENT : 2 LIGNES VERTICALES PROPRES ET ALIGNÉES */}
+                          {/* PASTILLES DE FORME EN 2 LIGNES PARFAITEMENT CADRÉES */}
                           <div className="my-3 bg-[#081426] p-2.5 rounded-xl border border-[#162C50] space-y-2">
                             <div className="flex items-center justify-between text-xs">
                               <span className="truncate max-w-[130px] font-semibold text-white">
@@ -813,7 +828,7 @@ export default function App() {
                           <div className="bg-[#081426] border border-[#162C50] p-3 rounded-xl text-xs space-y-1">
                             <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">Sélection Optimale ({type}) :</span>
                             <div className="text-sm font-black text-[#00D68F] flex items-center gap-1.5">
-                              <CheckCircle2 size={16} className="shrink-0" />
+                              <CheckCircle2 size={16} />
                               <span className="truncate">{pick}</span>
                             </div>
                           </div>
@@ -1036,7 +1051,7 @@ export default function App() {
             const q = inputQuestion;
             setInputQuestion('');
             const currentName = activeMatch ? `${activeMatch.homeTeam.name} vs ${activeMatch.awayTeam.name}` : 'les rencontres actives';
-            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après notre moteur de forme sur ${currentName}, nous combinons la dynamique récente et le rapport de force. Profitez des codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldpari: XPRO225) !` }]);
+            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après nos données réelles sur ${currentName}, nous combinons la dynamique récente et le rapport de force. Profitez des codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldpari: XPRO225) !` }]);
           }} className="p-3 bg-[#0D1E38] border-t border-[#162C50] flex gap-2">
             <input type="text" value={inputQuestion} onChange={(e) => setInputQuestion(e.target.value)} placeholder="Votre question..." className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none" />
             <button type="submit" className="bg-[#0066FF] text-white p-2.5 rounded-xl cursor-pointer hover:bg-[#0052CC]"><Send size={14} /></button>
