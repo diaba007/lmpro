@@ -35,16 +35,15 @@ import {
   EyeOff,
   AlertCircle,
   PlusCircle,
-  TrendingDown,
-  TrendingUp,
-  Activity
+  Crown
 } from 'lucide-react';
 
+// IMPORTATION DES COMPOSANTS MODULAIRES (ZÉRO ERREUR DE TYPE)
 import { StickyPromoBar } from './components/StickyPromoBar';
 import { PartnersView, INITIAL_PARTNERS } from './components/PartnersView';
 import { MatchAnalysisView } from './components/MatchAnalysisView';
 import { AdminConsoleView } from './components/AdminConsoleView';
-import { HistoryView, INITIAL_HISTORY, PredictionHistoryRecord } from './components/HistoryView';
+import { HistoryView } from './components/HistoryView';
 
 // --- CONFIGURATION FIREBASE ---
 const firebaseConfig = {
@@ -91,11 +90,8 @@ const LEAGUES_LIST = [
   { code: 'CL', name: 'Champions League', flag: '🇪🇺' }
 ];
 
-// =========================================================================
-// MOTEUR D'INDICE DE PUISSANCE & FORME DES ÉQUIPES (ZÉRO BIAIS DOMICILE)
-// =========================================================================
+// MOTEUR DE FORME & PUISSANCE DES ÉQUIPES
 const TEAM_RATINGS: Record<string, { rating: number; form: ('W' | 'D' | 'L')[] }> = {
-  // Poids lourds (Tier 1 : 90-96)
   'inter': { rating: 92, form: ['W', 'W', 'W', 'D', 'W'] },
   'manchester city': { rating: 95, form: ['W', 'W', 'W', 'W', 'D'] },
   'real madrid': { rating: 94, form: ['W', 'W', 'D', 'W', 'W'] },
@@ -105,8 +101,6 @@ const TEAM_RATINGS: Record<string, { rating: number; form: ('W' | 'D' | 'L')[] }
   'arsenal': { rating: 90, form: ['W', 'D', 'W', 'W', 'L'] },
   'liverpool': { rating: 91, form: ['W', 'W', 'W', 'W', 'W'] },
   'barcelona': { rating: 91, form: ['W', 'W', 'W', 'W', 'L'] },
-
-  // Tier 2 (82-89)
   'ac milan': { rating: 85, form: ['W', 'D', 'W', 'L', 'W'] },
   'milan': { rating: 85, form: ['W', 'D', 'W', 'L', 'W'] },
   'napoli': { rating: 87, form: ['W', 'W', 'W', 'W', 'D'] },
@@ -115,18 +109,9 @@ const TEAM_RATINGS: Record<string, { rating: number; form: ('W' | 'D' | 'L')[] }
   'dortmund': { rating: 84, form: ['L', 'W', 'L', 'W', 'W'] },
   'chelsea': { rating: 83, form: ['W', 'D', 'L', 'W', 'D'] },
   'atletico': { rating: 86, form: ['D', 'W', 'W', 'D', 'W'] },
-
-  // Tier 3 (73-81)
   'bologna': { rating: 78, form: ['D', 'D', 'D', 'W', 'L'] },
   'athletic club': { rating: 79, form: ['W', 'D', 'W', 'L', 'D'] },
   'marseille': { rating: 79, form: ['W', 'L', 'W', 'D', 'W'] },
-  'freiburg': { rating: 76, form: ['W', 'L', 'W', 'W', 'L'] },
-  'stuttgart': { rating: 80, form: ['D', 'W', 'L', 'W', 'D'] },
-  'fiorentina': { rating: 79, form: ['W', 'W', 'W', 'W', 'D'] },
-  'lazio': { rating: 80, form: ['W', 'W', 'L', 'W', 'W'] },
-  'roma': { rating: 78, form: ['L', 'D', 'W', 'L', 'W'] },
-
-  // Tier 4 (60-72 : Équipes modestes ou en difficulté)
   'venezia': { rating: 64, form: ['L', 'L', 'D', 'L', 'W'] },
   'monza': { rating: 68, form: ['L', 'D', 'L', 'W', 'L'] },
   'parma': { rating: 69, form: ['D', 'D', 'L', 'D', 'L'] },
@@ -135,11 +120,10 @@ const TEAM_RATINGS: Record<string, { rating: number; form: ('W' | 'D' | 'L')[] }
 };
 
 function getTeamStats(name: string) {
-  const clean = name.toLowerCase();
+  const clean = (name || '').toLowerCase();
   for (const [key, data] of Object.entries(TEAM_RATINGS)) {
     if (clean.includes(key)) return data;
   }
-  // Par défaut : équipe neutre
   return { rating: 72, form: ['D', 'W', 'L', 'D', 'L'] as ('W' | 'D' | 'L')[] };
 }
 
@@ -155,10 +139,10 @@ export default function App() {
   const [selectedLeagueFilter, setSelectedLeagueFilter] = useState('ALL');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  // HISTORIQUE CERTIFIÉ
-  const [historyRecords, setHistoryRecords] = useState<PredictionHistoryRecord[]>(() => {
+  // HISTORIQUE SÉCURISÉ (AUCUN IMPORT D'INTERFACE QUI FAIT PLANTER VERCEL)
+  const [historyRecords, setHistoryRecords] = useState<any[]>(() => {
     const saved = localStorage.getItem('lmpro_certified_history');
-    return saved ? JSON.parse(saved) : INITIAL_HISTORY;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [activeMarket, setActiveMarket] = useState<'ALL' | '1X2' | 'GOALS' | 'BTTS'>('ALL');
@@ -184,7 +168,7 @@ export default function App() {
     const s = localStorage.getItem('lmpro_admin_team'); return s ? JSON.parse(s) : [];
   });
 
-  // Partenaires et codes promos
+  // Partenaires
   const [partners, setPartners] = useState<any[]>(() => {
     const s = localStorage.getItem('lmpro_partners'); return s ? JSON.parse(s) : INITIAL_PARTNERS;
   });
@@ -197,7 +181,6 @@ export default function App() {
   ]);
   const [inputQuestion, setInputQuestion] = useState('');
 
-  // Navigation avec historique browser
   const navigateTo = (page: PageId, addToHistory = true) => {
     setCurrentPage(page);
     setMobileMenuOpen(false);
@@ -216,7 +199,6 @@ export default function App() {
     return onAuthStateChanged(auth, (u) => setUser(u));
   }, []);
 
-  // CHARGEMENT DIRECT DES VRAIS MATCHS DEPUIS L'API
   useEffect(() => {
     async function loadLiveMatches() {
       try {
@@ -319,7 +301,7 @@ export default function App() {
     r.readAsDataURL(file);
   };
 
-  const handleArchiveMatch = (record: PredictionHistoryRecord) => {
+  const handleArchiveMatch = (record: any) => {
     const updated = [record, ...historyRecords];
     setHistoryRecords(updated);
     localStorage.setItem('lmpro_certified_history', JSON.stringify(updated));
@@ -362,9 +344,7 @@ export default function App() {
     setTimeout(() => setAdminNotification(null), 3500);
   };
 
-  // =========================================================================
-  // CALCUL REALISTE BASÉ SUR LA FORME ET LE RAPPORT DE FORCE (RÉSOLUTION BIAIS)
-  // =========================================================================
+  // CALCULS OBJECTIFS SELON LA FORME ET LE RAPPORT DE FORCE
   const getMatchAnalysis = (m: Match | null) => {
     if (!m) return null;
     if (m.isManual && m.customAnalysis) {
@@ -385,34 +365,27 @@ export default function App() {
     const homeStats = getTeamStats(m.homeTeam.name);
     const awayStats = getTeamStats(m.awayTeam.name);
 
-    // Calcul de l'indice de forme (Derniers 5 matchs : W=3, D=1, L=0 sur 15 pts max)
     const homeFormPts = homeStats.form.reduce((acc, res) => acc + (res === 'W' ? 3 : res === 'D' ? 1 : 0), 0);
     const awayFormPts = awayStats.form.reduce((acc, res) => acc + (res === 'W' ? 3 : res === 'D' ? 1 : 0), 0);
 
-    // Score effectif combinant réputation (70%) + dynamique de forme récente (30%)
     const homeEffective = (homeStats.rating * 0.70) + ((homeFormPts / 15) * 30);
     const awayEffective = (awayStats.rating * 0.70) + ((awayFormPts / 15) * 30);
 
-    // Bonus domicile mesuré (+4 points seulement, ne surpasse pas un grand favori)
     const diff = (homeEffective + 4) - awayEffective;
 
-    // Calcul des probabilités 1X2 réalistes
     let hWin = 40 + (diff * 1.4);
     let aWin = 35 - (diff * 1.3);
     let dWin = 25 - (Math.abs(diff) * 0.3);
 
-    // Bornage réaliste (minimum 10%, maximum 78%)
     hWin = Math.min(78, Math.max(10, hWin));
     aWin = Math.min(78, Math.max(10, aWin));
     dWin = Math.min(32, Math.max(16, dWin));
 
-    // Normalisation à 100%
     const total = hWin + aWin + dWin;
     hWin = Number(((hWin / total) * 100).toFixed(1));
     aWin = Number(((aWin / total) * 100).toFixed(1));
     dWin = Number((100 - hWin - aWin).toFixed(1));
 
-    // Buts attendus (xG) proportionnels au rapport de force
     const xGHome = Number((1.1 + (diff * 0.04)).toFixed(2));
     const xGAway = Number((1.1 - (diff * 0.04)).toFixed(2));
 
@@ -696,7 +669,7 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE PRONOSTICS PRO (DIVERSIFIÉS : VIC. EXTÉRIEUR, OVER, BTTS, DOMICILE) */}
+          {/* PAGE PRONOSTICS PRO */}
           {currentPage === 'predictions' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -733,36 +706,30 @@ export default function App() {
                     const a = getMatchAnalysis(m);
                     if (!a) return null;
 
-                    // DÉTERMINATION INTELLIGENTE DU PRONOSTIC OBJECTIF
                     let pick = '';
                     let prob = 0;
                     let type: '1X2' | 'GOALS' | 'BTTS' = '1X2';
                     let conf = 'Élevée';
 
                     if (a.awayWin >= 55) {
-                      // Favori à l'extérieur net (ex: Inter vs Venezia)
                       pick = `Victoire ${m.awayTeam.name} (2)`;
                       prob = a.awayWin;
                       type = '1X2';
                       conf = a.awayWin > 65 ? 'Très Élevée' : 'Élevée';
                     } else if (a.homeWin >= 55) {
-                      // Favori à domicile net (ex: Real Madrid vs Athletic)
                       pick = `Victoire ${m.homeTeam.name} (1)`;
                       prob = a.homeWin;
                       type = '1X2';
                       conf = a.homeWin > 65 ? 'Très Élevée' : 'Élevée';
                     } else if (a.over25 >= 55) {
-                      // Deux équipes offensives
                       pick = 'Plus de 2.5 buts';
                       prob = a.over25;
                       type = 'GOALS';
                     } else if (a.btts >= 55) {
-                      // Deux équipes qui marquent souvent
                       pick = 'Les deux marquent (BTTS - Oui)';
                       prob = a.btts;
                       type = 'BTTS';
                     } else {
-                      // Match serré ou équilibré
                       pick = a.awayWin > a.homeWin ? `Double Chance X2 (${m.awayTeam.shortName || m.awayTeam.name} ou Nul)` : `Double Chance 1X (${m.homeTeam.shortName || m.homeTeam.name} ou Nul)`;
                       prob = a.awayWin > a.homeWin ? (a.awayWin + a.draw) : (a.homeWin + a.draw);
                       type = '1X2';
@@ -785,7 +752,7 @@ export default function App() {
                             {m.homeTeam.name} <span className="text-[#94A3B8] font-normal">vs</span> {m.awayTeam.name}
                           </div>
 
-                          {/* PILULES DE FORME RÉCENTE DES DEUX ÉQUIPES */}
+                          {/* PILULES DE FORME */}
                           <div className="flex items-center justify-between text-[10px] text-[#94A3B8] my-3 bg-[#081426] p-2 rounded-xl">
                             <div className="flex items-center gap-1">
                               <span className="truncate max-w-[65px] font-semibold text-white">{m.homeTeam.shortName || m.homeTeam.name} :</span>
@@ -1027,7 +994,7 @@ export default function App() {
             const q = inputQuestion;
             setInputQuestion('');
             const currentName = activeMatch ? `${activeMatch.homeTeam.name} vs ${activeMatch.awayTeam.name}` : 'les rencontres actives';
-            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après nos données réelles sur ${currentName}, nous surveillons de près l'espérance de buts. Utilisez les codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldpari: XPRO225) pour vos mises !` }]);
+            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après notre moteur de forme sur ${currentName}, nous combinons la dynamique récente et le rapport de force. Profitez des codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldpari: XPRO225) !` }]);
           }} className="p-3 bg-[#0D1E38] border-t border-[#162C50] flex gap-2">
             <input type="text" value={inputQuestion} onChange={(e) => setInputQuestion(e.target.value)} placeholder="Votre question..." className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none" />
             <button type="submit" className="bg-[#0066FF] text-white p-2.5 rounded-xl cursor-pointer hover:bg-[#0052CC]"><Send size={14} /></button>
