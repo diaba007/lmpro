@@ -36,7 +36,10 @@ import {
   EyeOff,
   AlertCircle,
   PlusCircle,
-  Crown
+  Crown,
+  Smartphone,
+  Check,
+  Zap
 } from 'lucide-react';
 
 // IMPORTATION DES COMPOSANTS MODULAIRES
@@ -83,12 +86,12 @@ export interface Match {
 
 const LEAGUES_LIST = [
   { code: 'ALL', name: 'Toutes les Compétitions', flag: '🌍' },
-  { code: 'SA', name: 'Serie A', flag: '🇮🇹' },
-  { code: 'PL', name: 'Premier League', flag: '🇬🇧' },
-  { code: 'PD', name: 'La Liga', flag: '🇪🇸' },
+  { code: 'SA', name: 'Serie A (VIP)', flag: '🇮🇹' },
+  { code: 'PL', name: 'Premier League (VIP)', flag: '🇬🇧' },
+  { code: 'PD', name: 'La Liga (VIP)', flag: '🇪🇸' },
+  { code: 'CL', name: 'Champions League (VIP)', flag: '🇪🇺' },
   { code: 'FL1', name: 'Ligue 1', flag: '🇫🇷' },
-  { code: 'BL1', name: 'Bundesliga', flag: '🇩🇪' },
-  { code: 'CL', name: 'Champions League', flag: '🇪🇺' }
+  { code: 'BL1', name: 'Bundesliga', flag: '🇩🇪' }
 ];
 
 // MOTEUR D'INDICE DE PUISSANCE & FORME DES ÉQUIPES
@@ -154,9 +157,18 @@ export default function App() {
   const [manualMatches, setManualMatches] = useState<Match[]>(() => {
     const s = localStorage.getItem('lmpro_manual_matches'); return s ? JSON.parse(s) : [];
   });
-  const [isLiveApi, setIsLiveApi] = useState<boolean>(false);
   const [selectedLeagueFilter, setSelectedLeagueFilter] = useState('ALL');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+
+  // GESTION DU STATUT VIP PAYANT
+  const [isVipMember, setIsVipMember] = useState<boolean>(() => {
+    return localStorage.getItem('lmpro_vip_member') === 'true';
+  });
+  const [showVipModal, setShowVipModal] = useState<boolean>(false);
+  const [selectedVipPlan, setSelectedVipPlan] = useState<'DAY' | 'MONTH' | 'YEAR'>('MONTH');
+  const [mobileMoneyProvider, setMobileMoneyProvider] = useState<'WAVE' | 'ORANGE' | 'MTN' | 'MOOV'>('WAVE');
+  const [phoneNumberInput, setPhoneNumberInput] = useState('');
+  const [paymentSuccessMsg, setPaymentSuccessMsg] = useState(false);
 
   const [historyRecords, setHistoryRecords] = useState<any[]>(() => {
     const saved = localStorage.getItem('lmpro_certified_history');
@@ -192,12 +204,15 @@ export default function App() {
   });
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
-  // IA Chatbot
+  // Chatbot IA
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([
     { role: 'bot', text: 'Bonjour ! Je suis votre analyste tactique LMPRO. Mon algorithme s\'appuie sur la forme récente et les données réelles de chaque club !' }
   ]);
   const [inputQuestion, setInputQuestion] = useState('');
+
+  // LE SUPER-ADMIN (CHRISTIAN) A TOUJOURS ACCÈS AUX PRONOSTICS VIP GRATUITEMENT
+  const hasVipAccess = isVipMember || isAdminAuthenticated || (Boolean(user) && (user.displayName?.toLowerCase().includes('christian') || user.email?.toLowerCase().includes('christian')));
 
   const navigateTo = (page: PageId, addToHistory = true) => {
     setCurrentPage(page);
@@ -225,14 +240,12 @@ export default function App() {
           const data = await res.json();
           if (data.matches && data.matches.length > 0) {
             setApiMatches(data.matches);
-            setIsLiveApi(true);
             return;
           }
         }
       } catch (err) {
         console.log("Relais actif : attente API.");
       }
-      setIsLiveApi(false);
     }
     loadLiveMatches();
   }, []);
@@ -362,6 +375,21 @@ export default function App() {
     setTimeout(() => setAdminNotification(null), 3500);
   };
 
+  // ACTIVATION DU PASS VIP VIA MOBILE MONEY
+  const handleActivateVip = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPaymentSuccessMsg(true);
+    setTimeout(() => {
+      setIsVipMember(true);
+      localStorage.setItem('lmpro_vip_member', 'true');
+      setShowVipModal(false);
+      setPaymentSuccessMsg(false);
+      setAdminNotification("Félicitations ! Votre Pass VIP a été activé avec succès.");
+      setTimeout(() => setAdminNotification(null), 4000);
+    }, 1500);
+  };
+
+  // CALCULS STATISTIQUES POISSON
   const getMatchAnalysis = (m: Match | null) => {
     if (!m) return null;
     if (m.isManual && m.customAnalysis) {
@@ -451,7 +479,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#081426] text-white flex flex-col md:flex-row font-sans relative">
       
-      {/* Topbar Mobile avec Logo Officiel */}
+      {/* Topbar Mobile */}
       <div className="md:hidden bg-[#081426] border-b border-[#162C50] p-3 flex justify-between items-center">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('dashboard')}>
           <img 
@@ -470,10 +498,9 @@ export default function App() {
         </button>
       </div>
 
-      {/* Menu Latéral Desktop avec Logo Officiel Grand Format */}
+      {/* Menu Latéral Desktop */}
       <aside className={`${mobileMenuOpen ? 'block' : 'hidden'} md:flex flex-col justify-between w-full md:w-64 bg-[#081426] border-r border-[#162C50] shrink-0`}>
         <div>
-          {/* ZONE LOGO OFFICIEL AVEC EFFET COURONNE & DESIGN PRESTIGE */}
           <div 
             className="p-5 border-b border-[#162C50] flex flex-col items-center justify-center text-center cursor-pointer group transition-all"
             onClick={() => navigateTo('dashboard')}
@@ -503,7 +530,7 @@ export default function App() {
               { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
               { id: 'matches', label: 'Matchs du jour', icon: CalendarDays },
               { id: 'analysis', label: 'Analyse Poisson', icon: LineChart },
-              { id: 'predictions', label: 'Pronostics Pro', icon: Target },
+              { id: 'predictions', label: 'Pronostics Pro', icon: Target, isVipTag: true },
               { id: 'partners', label: 'Bonus & Partenaires', icon: Gift, highlight: true },
               { id: 'history', label: 'Historique Certifié', icon: History },
               { id: 'profile', label: 'Mon Profil', icon: User },
@@ -519,8 +546,17 @@ export default function App() {
                     isActive ? 'bg-[#0066FF] text-white shadow-md shadow-[#0066FF]/30' : item.highlight ? 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20' : 'text-[#94A3B8] hover:bg-[#0D1E38] hover:text-white'
                   }`}
                 >
-                  <div className="flex items-center gap-3"><Icon size={18} /><span>{item.label}</span></div>
-                  {item.locked && <Lock size={12} className="text-[#94A3B8]" />}
+                  <div className="flex items-center gap-3">
+                    <Icon size={18} />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.locked ? (
+                    <Lock size={12} className="text-[#94A3B8]" />
+                  ) : item.isVipTag ? (
+                    <span className="text-[9px] font-black bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-400/30">VIP</span>
+                  ) : item.highlight ? (
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  ) : null}
                 </button>
               );
             })}
@@ -531,8 +567,8 @@ export default function App() {
         <div className="p-4 m-4 rounded-xl bg-[#0D1E38] border border-[#162C50] flex items-center justify-between">
           <div className="truncate text-left">
             <p className="text-xs font-bold text-white truncate">{user ? (user.displayName || user.email) : 'Visiteur'}</p>
-            <span className={`text-[10px] font-bold ${isAdminAuthenticated ? 'text-amber-400' : user ? 'text-[#00D68F]' : 'text-[#94A3B8]'}`}>
-              {isAdminAuthenticated ? '👑 Super-Admin' : user ? 'Membre' : 'Non Connecté'}
+            <span className={`text-[10px] font-bold ${isAdminAuthenticated ? 'text-amber-400' : hasVipAccess ? 'text-yellow-300 flex items-center gap-1' : user ? 'text-[#00D68F]' : 'text-[#94A3B8]'}`}>
+              {isAdminAuthenticated ? '👑 Super-Admin' : hasVipAccess ? '👑 Membre VIP' : user ? 'Membre Standard' : 'Non Connecté'}
             </span>
           </div>
           {user || isAdminAuthenticated ? (
@@ -552,7 +588,6 @@ export default function App() {
         />
 
         <div className="p-6 md:p-8 pt-6 max-w-7xl mx-auto w-full space-y-6">
-          {/* Bouton retour */}
           {currentPage !== 'dashboard' && (
             <button onClick={() => navigateTo('dashboard')} className="inline-flex items-center gap-2 bg-[#0D1E38] hover:bg-[#162C50] text-[#94A3B8] hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-bold border border-[#162C50] cursor-pointer transition-all">
               <ArrowLeft size={14} /><span>Retour au Tableau de Bord</span>
@@ -611,14 +646,24 @@ export default function App() {
           {/* TABLEAU DE BORD / MATCHS DU JOUR */}
           {(currentPage === 'dashboard' || currentPage === 'matches') && (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex justify-between items-center">
+              <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h1 className="text-2xl font-black text-white">Plateforme d'Analyse Footballistique</h1>
-                  <p className="text-xs text-[#94A3B8] mt-1">« Analysez mieux. Comprenez le football. » — Moteur prédictif basé sur la forme réelle.</p>
+                  <p className="text-xs text-[#94A3B8] mt-1">« Analysez mieux. Comprenez le football. » — Moteur Poisson & Forme Réelle.</p>
                 </div>
-                <button onClick={() => setIsAiOpen(true)} className="bg-gradient-to-r from-[#0066FF] to-[#00D68F] hover:opacity-90 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#0066FF]/20">
-                  <Sparkles size={14} /> Analyste IA
-                </button>
+                <div className="flex items-center gap-2">
+                  {!hasVipAccess && (
+                    <button 
+                      onClick={() => setShowVipModal(true)}
+                      className="bg-gradient-to-r from-amber-400 to-yellow-500 text-black px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-amber-400/20 cursor-pointer hover:brightness-105"
+                    >
+                      <Crown size={15} /> Pass VIP Europe
+                    </button>
+                  )}
+                  <button onClick={() => setIsAiOpen(true)} className="bg-gradient-to-r from-[#0066FF] to-[#00D68F] hover:opacity-90 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#0066FF]/20">
+                    <Sparkles size={14} /> Analyste IA
+                  </button>
+                </div>
               </div>
 
               {/* Filtres Championnats */}
@@ -711,30 +756,40 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE PRONOSTICS PRO */}
+          {/* PAGE PRONOSTICS PRO AVEC CADENAS VIP SUR LES MEILLEURS CHAMPIONNATS */}
           {currentPage === 'predictions' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h1 className="text-2xl font-black text-white flex items-center gap-2">
-                    <Target className="text-[#0066FF]" /> Pronostics Statistiques (Modèle de Forme & Poisson)
+                    <Target className="text-[#0066FF]" /> Pronostics Statistiques & Sélections VIP
                   </h1>
                   <p className="text-xs text-[#94A3B8]">
-                    Analyses calculées selon l'indice de forme des 5 derniers matchs et le rapport de force réel.
+                    Les championnats européens majeurs sont réservés aux membres VIP LMPRO.
                   </p>
                 </div>
-                <div className="flex bg-[#0D1E38] p-1 rounded-xl border border-[#162C50]">
-                  {(['ALL', '1X2', 'GOALS', 'BTTS'] as const).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setActiveMarket(m)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        activeMarket === m ? 'bg-[#0066FF] text-white shadow' : 'text-[#94A3B8] hover:text-white'
-                      }`}
+                <div className="flex items-center gap-2">
+                  {!hasVipAccess && (
+                    <button 
+                      onClick={() => setShowVipModal(true)}
+                      className="bg-gradient-to-r from-amber-400 to-yellow-500 text-black px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-amber-400/20 cursor-pointer hover:brightness-105"
                     >
-                      {m === 'ALL' ? 'Tous les Marchés' : m === 'GOALS' ? 'Buts (+/-)' : m}
+                      <Crown size={15} /> Débloquer Tout le VIP
                     </button>
-                  ))}
+                  )}
+                  <div className="flex bg-[#0D1E38] p-1 rounded-xl border border-[#162C50]">
+                    {(['ALL', '1X2', 'GOALS', 'BTTS'] as const).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setActiveMarket(m)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          activeMarket === m ? 'bg-[#0066FF] text-white shadow' : 'text-[#94A3B8] hover:text-white'
+                        }`}
+                      >
+                        {m === 'ALL' ? 'Tous' : m === 'GOALS' ? 'Buts' : m}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -747,6 +802,16 @@ export default function App() {
                   {filteredMatches.map((m, idx) => {
                     const a = getMatchAnalysis(m);
                     if (!a) return null;
+
+                    // VÉRIFICATION : CE MATCH EST-IL VIP ?
+                    // Les ligues majeures (Champions League, Premier League, La Liga, Serie A) sont protégées
+                    const compCode = m.competition?.code || '';
+                    const compName = m.competition?.name || '';
+                    const isEuropeanTopLeague = 
+                      compCode === 'CL' || compCode === 'PL' || compCode === 'PD' || compCode === 'SA' ||
+                      compName.includes('Champions') || compName.includes('Premier') || compName.includes('La Liga') || compName.includes('Serie A');
+
+                    const isMatchLocked = isEuropeanTopLeague && !hasVipAccess;
 
                     let pick = '';
                     let prob = 0;
@@ -788,20 +853,31 @@ export default function App() {
                     if (activeMarket !== 'ALL' && type !== activeMarket) return null;
 
                     return (
-                      <div key={idx} className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-5 flex flex-col justify-between hover:border-[#0066FF] transition-all">
+                      <div 
+                        key={idx} 
+                        className={`bg-[#0D1E38] border rounded-2xl p-5 flex flex-col justify-between transition-all ${
+                          isEuropeanTopLeague ? 'border-amber-400/40 hover:border-amber-400 shadow-lg shadow-amber-400/5' : 'border-[#162C50] hover:border-[#0066FF]'
+                        }`}
+                      >
                         <div>
                           <div className="flex justify-between items-center text-xs text-[#94A3B8] pb-2 border-b border-[#162C50] mb-2">
                             <span className="font-semibold truncate max-w-[150px]">{m.competition?.name || 'Football'}</span>
-                            <span className="text-[10px] font-mono bg-[#081426] px-2 py-0.5 rounded text-[#00D68F] font-bold">
-                              {conf}
-                            </span>
+                            {isEuropeanTopLeague ? (
+                              <span className="text-[10px] font-black bg-gradient-to-r from-amber-400 to-yellow-500 text-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                                <Crown size={12} /> PRONOSTIC VIP
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono bg-[#081426] px-2 py-0.5 rounded text-[#00D68F] font-bold">
+                                GRATUIT
+                              </span>
+                            )}
                           </div>
 
                           <div className="font-bold text-white text-sm my-2 truncate">
                             {m.homeTeam.name} <span className="text-[#94A3B8] font-normal">vs</span> {m.awayTeam.name}
                           </div>
 
-                          {/* PASTILLES DE FORME EN 2 LIGNES PARFAITEMENT CADRÉES */}
+                          {/* FORME RÉCENTE DES ÉQUIPES */}
                           <div className="my-3 bg-[#081426] p-2.5 rounded-xl border border-[#162C50] space-y-2">
                             <div className="flex items-center justify-between text-xs">
                               <span className="truncate max-w-[130px] font-semibold text-white">
@@ -825,23 +901,59 @@ export default function App() {
                             </div>
                           </div>
 
-                          <div className="bg-[#081426] border border-[#162C50] p-3 rounded-xl text-xs space-y-1">
-                            <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">Sélection Optimale ({type}) :</span>
-                            <div className="text-sm font-black text-[#00D68F] flex items-center gap-1.5">
-                              <CheckCircle2 size={16} />
-                              <span className="truncate">{pick}</span>
+                          {/* ZONE DE PRONOSTIC : VISIBLE OU VERROUILLÉE SI VIP */}
+                          {isMatchLocked ? (
+                            // CADENAS VIP : FLOU ET BOUTON DE PAIEMENT
+                            <div className="relative overflow-hidden rounded-xl border border-amber-400/40 p-4 bg-[#081426] text-center my-2 space-y-2">
+                              <div className="absolute inset-0 bg-gradient-to-b from-[#081426]/70 via-[#081426]/90 to-[#081426] backdrop-blur-sm z-10 flex flex-col items-center justify-center p-3">
+                                <div className="w-9 h-9 rounded-full bg-amber-400/20 border border-amber-400 flex items-center justify-center text-amber-300 mb-1">
+                                  <Lock size={16} />
+                                </div>
+                                <span className="text-xs font-black text-amber-300">PRONOSTIC VIP EUROPÉEN</span>
+                                <span className="text-[10px] text-[#94A3B8]">Réservé aux membres avec Pass VIP</span>
+                              </div>
+                              <div className="opacity-20 blur-xs">
+                                <div className="text-sm font-black text-white">Victoire Domicile (1)</div>
+                                <div className="text-xs text-[#00D68F]">Probabilité : 68%</div>
+                              </div>
                             </div>
-                          </div>
+                          ) : (
+                            // PRONOSTIC EN CLAIR POUR LES MATCHS GRATUITS OU MEMBRES VIP
+                            <div className="bg-[#081426] border border-[#162C50] p-3 rounded-xl text-xs space-y-1">
+                              <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">
+                                {isEuropeanTopLeague ? '👑 Sélection VIP Débloquée :' : `Sélection Optimale (${type}) :`}
+                              </span>
+                              <div className="text-sm font-black text-[#00D68F] flex items-center gap-1.5">
+                                <CheckCircle2 size={16} />
+                                <span className="truncate">{pick}</span>
+                              </div>
+                            </div>
+                          )}
 
-                          <div className="flex justify-between items-center pt-3 text-xs">
-                            <span className="text-[#94A3B8]">Probabilité Calculée :</span>
-                            <span className="font-mono font-bold text-white text-sm">{prob}%</span>
+                          <div className="flex justify-between items-center pt-2 text-xs">
+                            <span className="text-[#94A3B8]">Probabilité Poisson :</span>
+                            <span className="font-mono font-bold text-white text-sm">
+                              {isMatchLocked ? '🔒 VIP' : `${prob}%`}
+                            </span>
                           </div>
                         </div>
 
-                        <button onClick={() => { setSelectedMatch(m); navigateTo('analysis'); }} className="mt-4 w-full py-2 bg-[#162C50] hover:bg-[#0066FF] text-white rounded-xl text-xs font-bold cursor-pointer transition-colors">
-                          Analyse complète & Cotes →
-                        </button>
+                        {/* BOUTON D'ACTION : DÉBLOQUER OU VOIR L'ANALYSE */}
+                        {isMatchLocked ? (
+                          <button 
+                            onClick={() => setShowVipModal(true)} 
+                            className="mt-4 w-full py-2.5 bg-gradient-to-r from-amber-400 to-yellow-500 hover:brightness-105 text-black rounded-xl text-xs font-black cursor-pointer shadow-lg shadow-amber-400/20 flex items-center justify-center gap-1.5 transition-all"
+                          >
+                            <Crown size={14} /> Débloquer ce Pronostic VIP
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => { setSelectedMatch(m); navigateTo('analysis'); }} 
+                            className="mt-4 w-full py-2.5 bg-[#162C50] hover:bg-[#0066FF] text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                          >
+                            Analyse complète & Cotes →
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -1008,21 +1120,164 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 flex items-center justify-between">
-                  <div>
-                    <h2 className="text-base font-bold text-white">{user.displayName || user.email}</h2>
-                    <p className="text-xs text-[#94A3B8]">{user.email}</p>
-                    <span className="text-[10px] bg-[#00D68F]/20 text-[#00D68F] font-bold px-2 py-0.5 rounded mt-1 inline-block">✓ Membre Inscrit</span>
+                <div className="space-y-4">
+                  <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base font-bold text-white">{user.displayName || user.email}</h2>
+                      <p className="text-xs text-[#94A3B8]">{user.email}</p>
+                      <div className="flex gap-2 mt-2">
+                        <span className="text-[10px] bg-[#00D68F]/20 text-[#00D68F] font-bold px-2 py-0.5 rounded">
+                          ✓ Compte Vérifié
+                        </span>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
+                          hasVipAccess ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' : 'bg-[#162C50] text-[#94A3B8]'
+                        }`}>
+                          {hasVipAccess ? '👑 PASS VIP ACTIF' : 'STANDARD (SANS VIP)'}
+                        </span>
+                      </div>
+                    </div>
+                    <button onClick={() => signOut(auth)} className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/40 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors">
+                      Déconnexion
+                    </button>
                   </div>
-                  <button onClick={() => signOut(auth)} className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/40 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors">
-                    Déconnexion
-                  </button>
+
+                  {/* Bouton d'adhésion VIP depuis le profil */}
+                  {!hasVipAccess && (
+                    <div className="bg-gradient-to-r from-amber-400/10 via-[#0D1E38] to-amber-400/10 border border-amber-400/40 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-sm font-black text-white flex items-center gap-1.5">
+                          <Crown size={16} className="text-amber-400" /> Passez à LMPRO VIP Europe
+                        </h3>
+                        <p className="text-xs text-[#94A3B8] mt-0.5">
+                          Débloquez l'intégralité des pronostics Champions League, Premier League, Liga et Serie A par Mobile Money.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setShowVipModal(true)}
+                        className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:brightness-105 text-black font-black text-xs px-4 py-2.5 rounded-xl cursor-pointer whitespace-nowrap shadow-lg shadow-amber-400/20"
+                      >
+                        Souscrire un Pass VIP →
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
         </div>
       </main>
+
+      {/* ============================================================== */}
+      {/* MODAL DE PAIEMENT MOBILE MONEY (WAVE, ORANGE, MTN, MOOV) */}
+      {/* ============================================================== */}
+      {showVipModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#0D1E38] border border-amber-400/50 rounded-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl relative">
+            <button 
+              onClick={() => setShowVipModal(false)}
+              className="absolute right-4 top-4 text-[#94A3B8] hover:text-white cursor-pointer p-1"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="text-center space-y-1.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400 flex items-center justify-center text-amber-300 mx-auto shadow-lg shadow-amber-400/10">
+                <Crown size={26} />
+              </div>
+              <h2 className="text-xl font-black text-white">Souscrire au Pass VIP LMPRO</h2>
+              <p className="text-xs text-[#94A3B8]">
+                Accédez à toutes les analyses et prédictions exclusives des grands championnats européens.
+              </p>
+            </div>
+
+            {paymentSuccessMsg ? (
+              <div className="p-6 bg-emerald-500/20 border border-emerald-500 text-center rounded-2xl space-y-2">
+                <Check size={36} className="text-[#00D68F] mx-auto animate-bounce" />
+                <h3 className="text-base font-black text-white">Paiement Mobile Money Confirmé !</h3>
+                <p className="text-xs text-slate-300">Votre Pass VIP est actif. Déblocage immédiat de toutes les prédictions.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleActivateVip} className="space-y-4">
+                {/* 1. Choix de la formule */}
+                <div>
+                  <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1.5">Choisissez votre Formule :</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'DAY', name: 'Pass 24H', price: '1 000 FCFA', badge: 'Court Terme' },
+                      { id: 'MONTH', name: 'Pass 1 Mois', price: '5 000 FCFA', badge: 'Populaire', pop: true },
+                      { id: 'YEAR', name: 'Pass 3 Mois', price: '12 000 FCFA', badge: 'Économique' }
+                    ].map((plan) => (
+                      <div
+                        key={plan.id}
+                        onClick={() => setSelectedVipPlan(plan.id as any)}
+                        className={`p-3 rounded-xl border text-center cursor-pointer transition-all ${
+                          selectedVipPlan === plan.id 
+                            ? 'bg-amber-400/20 border-amber-400 text-white shadow-lg' 
+                            : 'bg-[#081426] border-[#162C50] text-[#94A3B8] hover:border-slate-500'
+                        }`}
+                      >
+                        <span className="text-[9px] font-bold uppercase block text-amber-300">{plan.badge}</span>
+                        <div className="font-extrabold text-xs text-white mt-1">{plan.name}</div>
+                        <div className="font-mono font-black text-sm text-yellow-300 mt-0.5">{plan.price}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Choix du moyen Mobile Money */}
+                <div>
+                  <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1.5">Moyen de Paiement Mobile Money :</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { id: 'WAVE', name: 'Wave', color: 'bg-[#1EA5FC] text-white' },
+                      { id: 'ORANGE', name: 'Orange', color: 'bg-[#FF6600] text-white' },
+                      { id: 'MTN', name: 'MTN MoMo', color: 'bg-[#FFCC00] text-black' },
+                      { id: 'MOOV', name: 'Moov', color: 'bg-[#005CA9] text-white' }
+                    ].map((momo) => (
+                      <button
+                        key={momo.id}
+                        type="button"
+                        onClick={() => setMobileMoneyProvider(momo.id as any)}
+                        className={`py-2 rounded-xl text-xs font-black transition-all cursor-pointer border ${momo.color} ${
+                          mobileMoneyProvider === momo.id ? 'ring-2 ring-white scale-105 shadow-lg' : 'opacity-80 hover:opacity-100'
+                        }`}
+                      >
+                        {momo.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Numéro de téléphone */}
+                <div>
+                  <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Votre Numéro de Téléphone :</label>
+                  <div className="relative">
+                    <Smartphone size={16} className="absolute left-3.5 top-3 text-[#94A3B8]" />
+                    <input
+                      type="tel"
+                      required
+                      value={phoneNumberInput}
+                      onChange={(e) => setPhoneNumberInput(e.target.value)}
+                      placeholder="Ex: 07 00 00 00 00"
+                      className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white font-mono placeholder-[#94A3B8] outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <span className="text-[10px] text-[#94A3B8] mt-1 block">Vous recevrez une notification de confirmation sur votre téléphone {mobileMoneyProvider}.</span>
+                </div>
+
+                {/* Bouton de confirmation de paiement */}
+                <button
+                  type="submit"
+                  className="w-full py-3.5 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 hover:brightness-105 text-black font-black text-sm rounded-xl shadow-xl shadow-amber-400/25 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Zap size={16} />
+                  <span>Confirmer le Paiement & Activer le Pass VIP</span>
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Bouton IA flottant */}
       {!isAiOpen && (
@@ -1051,7 +1306,7 @@ export default function App() {
             const q = inputQuestion;
             setInputQuestion('');
             const currentName = activeMatch ? `${activeMatch.homeTeam.name} vs ${activeMatch.awayTeam.name}` : 'les rencontres actives';
-            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après nos données réelles sur ${currentName}, nous combinons la dynamique récente et le rapport de force. Profitez des codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldpari: XPRO225) !` }]);
+            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après nos données réelles sur ${currentName}, nous surveillons de près l'espérance de buts. Utilisez les codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldpari: XPRO225) pour vos mises !` }]);
           }} className="p-3 bg-[#0D1E38] border-t border-[#162C50] flex gap-2">
             <input type="text" value={inputQuestion} onChange={(e) => setInputQuestion(e.target.value)} placeholder="Votre question..." className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none" />
             <button type="submit" className="bg-[#0066FF] text-white p-2.5 rounded-xl cursor-pointer hover:bg-[#0052CC]"><Send size={14} /></button>
