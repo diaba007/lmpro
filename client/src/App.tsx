@@ -10,7 +10,6 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -37,9 +36,7 @@ import {
   AlertCircle,
   PlusCircle,
   Crown,
-  Smartphone,
-  Check,
-  Zap
+  ExternalLink
 } from 'lucide-react';
 
 // IMPORTATION DES COMPOSANTS MODULAIRES
@@ -48,6 +45,7 @@ import { PartnersView, INITIAL_PARTNERS } from './components/PartnersView';
 import { MatchAnalysisView } from './components/MatchAnalysisView';
 import { AdminConsoleView } from './components/AdminConsoleView';
 import { HistoryView } from './components/HistoryView';
+import { VipPaymentModal } from './components/VipPaymentModal';
 
 // --- CONFIGURATION FIREBASE ---
 const firebaseConfig = {
@@ -94,7 +92,6 @@ const LEAGUES_LIST = [
   { code: 'BL1', name: 'Bundesliga', flag: '🇩🇪' }
 ];
 
-// MOTEUR D'INDICE DE PUISSANCE & FORME DES ÉQUIPES
 const TEAM_RATINGS: Record<string, { rating: number; form: ('W' | 'D' | 'L')[] }> = {
   'inter': { rating: 92, form: ['W', 'W', 'W', 'D', 'W'] },
   'manchester city': { rating: 95, form: ['W', 'W', 'W', 'W', 'D'] },
@@ -150,9 +147,14 @@ function getTeamStats(name: string) {
 }
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
+  // Détecte si l'URL courante contient #admin (pour ouvrir l'admin dans un onglet dédié)
+  const [currentPage, setCurrentPage] = useState<PageId>(() => {
+    const hash = window.location.hash.replace('#', '');
+    const validPages: PageId[] = ['dashboard', 'matches', 'analysis', 'predictions', 'history', 'partners', 'profile', 'admin'];
+    return validPages.includes(hash as PageId) ? (hash as PageId) : 'dashboard';
+  });
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
   const [apiMatches, setApiMatches] = useState<Match[]>([]);
   const [manualMatches, setManualMatches] = useState<Match[]>(() => {
     const s = localStorage.getItem('lmpro_manual_matches'); return s ? JSON.parse(s) : [];
@@ -160,15 +162,11 @@ export default function App() {
   const [selectedLeagueFilter, setSelectedLeagueFilter] = useState('ALL');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  // GESTION DU STATUT VIP PAYANT
+  // VIP & MODAL DE PAIEMENT SÉPARÉ
   const [isVipMember, setIsVipMember] = useState<boolean>(() => {
     return localStorage.getItem('lmpro_vip_member') === 'true';
   });
   const [showVipModal, setShowVipModal] = useState<boolean>(false);
-  const [selectedVipPlan, setSelectedVipPlan] = useState<'DAY' | 'MONTH' | 'YEAR'>('MONTH');
-  const [mobileMoneyProvider, setMobileMoneyProvider] = useState<'WAVE' | 'ORANGE' | 'MTN' | 'MOOV'>('WAVE');
-  const [phoneNumberInput, setPhoneNumberInput] = useState('');
-  const [paymentSuccessMsg, setPaymentSuccessMsg] = useState(false);
 
   const [historyRecords, setHistoryRecords] = useState<any[]>(() => {
     const saved = localStorage.getItem('lmpro_certified_history');
@@ -204,14 +202,13 @@ export default function App() {
   });
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
-  // Chatbot IA
+  // IA Chatbot
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([
     { role: 'bot', text: 'Bonjour ! Je suis votre analyste tactique LMPRO. Mon algorithme s\'appuie sur la forme récente et les données réelles de chaque club !' }
   ]);
   const [inputQuestion, setInputQuestion] = useState('');
 
-  // LE SUPER-ADMIN (CHRISTIAN) A TOUJOURS ACCÈS AUX PRONOSTICS VIP GRATUITEMENT
   const hasVipAccess = isVipMember || isAdminAuthenticated || (Boolean(user) && (user.displayName?.toLowerCase().includes('christian') || user.email?.toLowerCase().includes('christian')));
 
   const navigateTo = (page: PageId, addToHistory = true) => {
@@ -221,8 +218,15 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // OUVRE L'ADMINISTRATION DANS UNE NOUVELLE FENÊTRE/ONGLET DÉDIÉ
+  const openAdminInNewWindow = () => {
+    window.open('/#admin', '_blank', 'noopener,noreferrer');
+  };
+
   useEffect(() => {
-    window.history.replaceState({ page: 'dashboard' }, '', '/#dashboard');
+    if (!window.location.hash) {
+      window.history.replaceState({ page: 'dashboard' }, '', '/#dashboard');
+    }
     const onPop = (e: any) => setCurrentPage(e.state?.page || 'dashboard');
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -375,21 +379,7 @@ export default function App() {
     setTimeout(() => setAdminNotification(null), 3500);
   };
 
-  // ACTIVATION DU PASS VIP VIA MOBILE MONEY
-  const handleActivateVip = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPaymentSuccessMsg(true);
-    setTimeout(() => {
-      setIsVipMember(true);
-      localStorage.setItem('lmpro_vip_member', 'true');
-      setShowVipModal(false);
-      setPaymentSuccessMsg(false);
-      setAdminNotification("Félicitations ! Votre Pass VIP a été activé avec succès.");
-      setTimeout(() => setAdminNotification(null), 4000);
-    }, 1500);
-  };
-
-  // CALCULS STATISTIQUES POISSON
+  // CALCULS DE POISSON SUR LA FORME RÉELLE
   const getMatchAnalysis = (m: Match | null) => {
     if (!m) return null;
     if (m.isManual && m.customAnalysis) {
@@ -534,14 +524,20 @@ export default function App() {
               { id: 'partners', label: 'Bonus & Partenaires', icon: Gift, highlight: true },
               { id: 'history', label: 'Historique Certifié', icon: History },
               { id: 'profile', label: 'Mon Profil', icon: User },
-              { id: 'admin', label: 'Console Admin', icon: ShieldCheck, locked: !isAdminAuthenticated },
+              { id: 'admin', label: 'Console Admin', icon: ShieldCheck, locked: !isAdminAuthenticated, opensNewWindow: true },
             ].map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
               return (
                 <button
                   key={item.id}
-                  onClick={() => navigateTo(item.id as PageId)}
+                  onClick={() => {
+                    if (item.opensNewWindow) {
+                      openAdminInNewWindow();
+                    } else {
+                      navigateTo(item.id as PageId);
+                    }
+                  }}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     isActive ? 'bg-[#0066FF] text-white shadow-md shadow-[#0066FF]/30' : item.highlight ? 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20' : 'text-[#94A3B8] hover:bg-[#0D1E38] hover:text-white'
                   }`}
@@ -552,6 +548,8 @@ export default function App() {
                   </div>
                   {item.locked ? (
                     <Lock size={12} className="text-[#94A3B8]" />
+                  ) : item.opensNewWindow ? (
+                    <ExternalLink size={12} className="text-[#94A3B8]" title="Ouvrir dans un nouvel onglet" />
                   ) : item.isVipTag ? (
                     <span className="text-[9px] font-black bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-400/30">VIP</span>
                   ) : item.highlight ? (
@@ -707,10 +705,10 @@ export default function App() {
                         <Crown size={14} className="text-amber-400" /> Relais Administrateur Ouvert
                       </p>
                       <button
-                        onClick={() => navigateTo('admin')}
+                        onClick={openAdminInNewWindow}
                         className="bg-[#00D68F] hover:bg-[#00b377] text-black font-black text-xs px-4 py-2 rounded-xl cursor-pointer transition-all inline-flex items-center gap-1.5 shadow-md shadow-[#00D68F]/10 mt-1"
                       >
-                        <PlusCircle size={14} /> Publier un Match Manuel
+                        <PlusCircle size={14} /> Publier un Match Manuel (Admin)
                       </button>
                     </div>
                   </div>
@@ -803,8 +801,6 @@ export default function App() {
                     const a = getMatchAnalysis(m);
                     if (!a) return null;
 
-                    // VÉRIFICATION : CE MATCH EST-IL VIP ?
-                    // Les ligues majeures (Champions League, Premier League, La Liga, Serie A) sont protégées
                     const compCode = m.competition?.code || '';
                     const compName = m.competition?.name || '';
                     const isEuropeanTopLeague = 
@@ -877,7 +873,7 @@ export default function App() {
                             {m.homeTeam.name} <span className="text-[#94A3B8] font-normal">vs</span> {m.awayTeam.name}
                           </div>
 
-                          {/* FORME RÉCENTE DES ÉQUIPES */}
+                          {/* FORME RÉCENTE DES ÉQUIPES EN 2 LIGNES */}
                           <div className="my-3 bg-[#081426] p-2.5 rounded-xl border border-[#162C50] space-y-2">
                             <div className="flex items-center justify-between text-xs">
                               <span className="truncate max-w-[130px] font-semibold text-white">
@@ -901,9 +897,8 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* ZONE DE PRONOSTIC : VISIBLE OU VERROUILLÉE SI VIP */}
+                          {/* ZONE PRONOSTIC : FLOU SI VERROUILLÉ */}
                           {isMatchLocked ? (
-                            // CADENAS VIP : FLOU ET BOUTON DE PAIEMENT
                             <div className="relative overflow-hidden rounded-xl border border-amber-400/40 p-4 bg-[#081426] text-center my-2 space-y-2">
                               <div className="absolute inset-0 bg-gradient-to-b from-[#081426]/70 via-[#081426]/90 to-[#081426] backdrop-blur-sm z-10 flex flex-col items-center justify-center p-3">
                                 <div className="w-9 h-9 rounded-full bg-amber-400/20 border border-amber-400 flex items-center justify-center text-amber-300 mb-1">
@@ -918,7 +913,6 @@ export default function App() {
                               </div>
                             </div>
                           ) : (
-                            // PRONOSTIC EN CLAIR POUR LES MATCHS GRATUITS OU MEMBRES VIP
                             <div className="bg-[#081426] border border-[#162C50] p-3 rounded-xl text-xs space-y-1">
                               <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">
                                 {isEuropeanTopLeague ? '👑 Sélection VIP Débloquée :' : `Sélection Optimale (${type}) :`}
@@ -938,7 +932,6 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* BOUTON D'ACTION : DÉBLOQUER OU VOIR L'ANALYSE */}
                         {isMatchLocked ? (
                           <button 
                             onClick={() => setShowVipModal(true)} 
@@ -1141,7 +1134,6 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Bouton d'adhésion VIP depuis le profil */}
                   {!hasVipAccess && (
                     <div className="bg-gradient-to-r from-amber-400/10 via-[#0D1E38] to-amber-400/10 border border-amber-400/40 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
                       <div>
@@ -1167,117 +1159,17 @@ export default function App() {
         </div>
       </main>
 
-      {/* ============================================================== */}
-      {/* MODAL DE PAIEMENT MOBILE MONEY (WAVE, ORANGE, MTN, MOOV) */}
-      {/* ============================================================== */}
-      {showVipModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[#0D1E38] border border-amber-400/50 rounded-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl relative">
-            <button 
-              onClick={() => setShowVipModal(false)}
-              className="absolute right-4 top-4 text-[#94A3B8] hover:text-white cursor-pointer p-1"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="text-center space-y-1.5">
-              <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400 flex items-center justify-center text-amber-300 mx-auto shadow-lg shadow-amber-400/10">
-                <Crown size={26} />
-              </div>
-              <h2 className="text-xl font-black text-white">Souscrire au Pass VIP LMPRO</h2>
-              <p className="text-xs text-[#94A3B8]">
-                Accédez à toutes les analyses et prédictions exclusives des grands championnats européens.
-              </p>
-            </div>
-
-            {paymentSuccessMsg ? (
-              <div className="p-6 bg-emerald-500/20 border border-emerald-500 text-center rounded-2xl space-y-2">
-                <Check size={36} className="text-[#00D68F] mx-auto animate-bounce" />
-                <h3 className="text-base font-black text-white">Paiement Mobile Money Confirmé !</h3>
-                <p className="text-xs text-slate-300">Votre Pass VIP est actif. Déblocage immédiat de toutes les prédictions.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleActivateVip} className="space-y-4">
-                {/* 1. Choix de la formule */}
-                <div>
-                  <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1.5">Choisissez votre Formule :</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'DAY', name: 'Pass 24H', price: '1 000 FCFA', badge: 'Court Terme' },
-                      { id: 'MONTH', name: 'Pass 1 Mois', price: '5 000 FCFA', badge: 'Populaire', pop: true },
-                      { id: 'YEAR', name: 'Pass 3 Mois', price: '12 000 FCFA', badge: 'Économique' }
-                    ].map((plan) => (
-                      <div
-                        key={plan.id}
-                        onClick={() => setSelectedVipPlan(plan.id as any)}
-                        className={`p-3 rounded-xl border text-center cursor-pointer transition-all ${
-                          selectedVipPlan === plan.id 
-                            ? 'bg-amber-400/20 border-amber-400 text-white shadow-lg' 
-                            : 'bg-[#081426] border-[#162C50] text-[#94A3B8] hover:border-slate-500'
-                        }`}
-                      >
-                        <span className="text-[9px] font-bold uppercase block text-amber-300">{plan.badge}</span>
-                        <div className="font-extrabold text-xs text-white mt-1">{plan.name}</div>
-                        <div className="font-mono font-black text-sm text-yellow-300 mt-0.5">{plan.price}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 2. Choix du moyen Mobile Money */}
-                <div>
-                  <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1.5">Moyen de Paiement Mobile Money :</label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { id: 'WAVE', name: 'Wave', color: 'bg-[#1EA5FC] text-white' },
-                      { id: 'ORANGE', name: 'Orange', color: 'bg-[#FF6600] text-white' },
-                      { id: 'MTN', name: 'MTN MoMo', color: 'bg-[#FFCC00] text-black' },
-                      { id: 'MOOV', name: 'Moov', color: 'bg-[#005CA9] text-white' }
-                    ].map((momo) => (
-                      <button
-                        key={momo.id}
-                        type="button"
-                        onClick={() => setMobileMoneyProvider(momo.id as any)}
-                        className={`py-2 rounded-xl text-xs font-black transition-all cursor-pointer border ${momo.color} ${
-                          mobileMoneyProvider === momo.id ? 'ring-2 ring-white scale-105 shadow-lg' : 'opacity-80 hover:opacity-100'
-                        }`}
-                      >
-                        {momo.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 3. Numéro de téléphone */}
-                <div>
-                  <label className="text-[11px] font-bold text-[#94A3B8] uppercase block mb-1">Votre Numéro de Téléphone :</label>
-                  <div className="relative">
-                    <Smartphone size={16} className="absolute left-3.5 top-3 text-[#94A3B8]" />
-                    <input
-                      type="tel"
-                      required
-                      value={phoneNumberInput}
-                      onChange={(e) => setPhoneNumberInput(e.target.value)}
-                      placeholder="Ex: 07 00 00 00 00"
-                      className="w-full bg-[#081426] border border-[#162C50] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white font-mono placeholder-[#94A3B8] outline-none focus:border-amber-400"
-                    />
-                  </div>
-                  <span className="text-[10px] text-[#94A3B8] mt-1 block">Vous recevrez une notification de confirmation sur votre téléphone {mobileMoneyProvider}.</span>
-                </div>
-
-                {/* Bouton de confirmation de paiement */}
-                <button
-                  type="submit"
-                  className="w-full py-3.5 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 hover:brightness-105 text-black font-black text-sm rounded-xl shadow-xl shadow-amber-400/25 transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <Zap size={16} />
-                  <span>Confirmer le Paiement & Activer le Pass VIP</span>
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      {/* MODAL DE PAIEMENT SÉPARÉ (WAVE, ORANGE, MTN, MOOV) */}
+      <VipPaymentModal 
+        isOpen={showVipModal}
+        onClose={() => setShowVipModal(false)}
+        onSuccess={() => {
+          setIsVipMember(true);
+          localStorage.setItem('lmpro_vip_member', 'true');
+          setAdminNotification("Félicitations ! Votre Pass VIP a été activé avec succès.");
+          setTimeout(() => setAdminNotification(null), 4000);
+        }}
+      />
 
       {/* Bouton IA flottant */}
       {!isAiOpen && (
@@ -1306,7 +1198,7 @@ export default function App() {
             const q = inputQuestion;
             setInputQuestion('');
             const currentName = activeMatch ? `${activeMatch.homeTeam.name} vs ${activeMatch.awayTeam.name}` : 'les rencontres actives';
-            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après nos données réelles sur ${currentName}, nous surveillons de près l'espérance de buts. Utilisez les codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldpari: XPRO225) pour vos mises !` }]);
+            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après nos données réelles sur ${currentName}, nous combinons la dynamique récente et le rapport de force. Profitez des codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldpari: XPRO225) !` }]);
           }} className="p-3 bg-[#0D1E38] border-t border-[#162C50] flex gap-2">
             <input type="text" value={inputQuestion} onChange={(e) => setInputQuestion(e.target.value)} placeholder="Votre question..." className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none" />
             <button type="submit" className="bg-[#0066FF] text-white p-2.5 rounded-xl cursor-pointer hover:bg-[#0052CC]"><Send size={14} /></button>
