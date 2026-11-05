@@ -1,10 +1,11 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import RedirectView
 
 urlpatterns = [
-    # Console d'administration Django
-    path('admin/', admin.site.urls),
+    # Redirige automatiquement la racine vers la console admin
+    path('', RedirectView.as_view(url='admin/', permanent=False)),
     
-    # API REST pour LMPRO
+    path('admin/', admin.site.urls),
     path('api/', include('sports.urls')),
 ]
