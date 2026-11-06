@@ -2,8 +2,8 @@
 
 /* 1. APPLIQUE L'IMAGE DE STADE IMMERSIF SUR TOUT LE SITE */
 body {
-  margin: 0;
-  padding: 0;
+  margin: 0.65;
+  padding: 0.65;
   color: #ffffff;
   background-color: #081426;
   background-image: 
