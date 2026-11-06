@@ -224,6 +224,7 @@ export default function App() {
   };
 
   // CHARGEMENT EN DIRECT DEPUIS VOTRE API DJANGO RENDER
+  // CHARGEMENT AUTOMATIQUE DIRECT DEPUIS DJANGO (PRIORITÉ N°1)
   useEffect(() => {
     async function loadDataFromDjango() {
       // 1. Charger les partenaires et codes promos depuis Django
@@ -236,7 +237,7 @@ export default function App() {
               id: p.name.toLowerCase().replace(/\s+/g, ''),
               name: p.name,
               bonus: p.bonus_text,
-              bonusTitle: "Offre spéciale",
+              bonusTitle: "Offre vérifiée",
               bonusHighlight: p.bonus_text,
               bonusSub: "",
               promoCode: p.promo_code,
@@ -249,22 +250,40 @@ export default function App() {
           }
         }
       } catch (e) {
-        console.log('Utilisation des partenaires de secours');
+        console.log('Utilisation des partenaires locaux de secours');
       }
 
-      // 2. Charger les matchs depuis l'agrégateur
+      // 2. CHARGER LES MATCHS DJANGO DIRECTEMENT (AFFICHAGE IMMÉDIAT SANS VALIDATION !)
       try {
-        const matchRes = await fetch('/api/matches');
+        const matchRes = await fetch('https://lmpro-t1jz.onrender.com/api/matches/');
         if (matchRes.ok) {
           const matchData = await matchRes.json();
-          if (matchData.matches && matchData.matches.length > 0) {
-            setApiMatches(matchData.matches);
+          if (matchData.matches && Array.isArray(matchData.matches) && matchData.matches.length > 0) {
+            const djangoMatches = matchData.matches.map((m: any) => ({
+              ...m,
+              isManual: true // Active automatiquement le badge "ANALYSE EXPERT"
+            }));
+            setApiMatches(djangoMatches);
             setIsLiveApi(true);
+            setSelectedMatch(djangoMatches[0]);
+            return;
           }
         }
       } catch (e) {
-        console.log('Mode relais actif');
+        console.log('Django sans match pour le moment, passage au flux secondaire');
       }
+
+      // 3. Repli automatique sur l'API externe si aucun match n'est dans Django
+      try {
+        const res = await fetch('/api/matches');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.matches && data.matches.length > 0) {
+            setApiMatches(data.matches);
+            setIsLiveApi(true);
+          }
+        }
+      } catch (err) {}
     }
 
     loadDataFromDjango();
