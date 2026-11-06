@@ -223,15 +223,52 @@ export default function App() {
     window.open('/#admin', '_blank', 'noopener,noreferrer');
   };
 
+  // CHARGEMENT EN DIRECT DEPUIS VOTRE API DJANGO RENDER
   useEffect(() => {
-    if (!window.location.hash) {
-      window.history.replaceState({ page: 'dashboard' }, '', '/#dashboard');
-    }
-    const onPop = (e: any) => setCurrentPage(e.state?.page || 'dashboard');
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
+    async function loadDataFromDjango() {
+      // 1. Charger les partenaires et codes promos depuis Django
+      try {
+        const res = await fetch('https://lmpro-t1jz.onrender.com/api/partners/');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.partners && Array.isArray(data.partners) && data.partners.length > 0) {
+            const formatted = data.partners.map((p: any) => ({
+              id: p.name.toLowerCase().replace(/\s+/g, ''),
+              name: p.name,
+              bonus: p.bonus_text,
+              bonusTitle: "Offre spéciale",
+              bonusHighlight: p.bonus_text,
+              bonusSub: "",
+              promoCode: p.promo_code,
+              url: p.affiliate_url,
+              badge: p.name.toUpperCase().includes('MELBET') ? 'TOP BONUS AFRIQUE' : 'OFFICIEL',
+              bgColor: p.bg_color || '#F3A000',
+              btnTextColor: p.bg_color === '#F3A000' ? '#1A1A1A' : '#FFFFFF'
+            }));
+            setPartners(formatted);
+          }
+        }
+      } catch (e) {
+        console.log('Utilisation des partenaires de secours');
+      }
 
+      // 2. Charger les matchs depuis l'agrégateur
+      try {
+        const matchRes = await fetch('/api/matches');
+        if (matchRes.ok) {
+          const matchData = await matchRes.json();
+          if (matchData.matches && matchData.matches.length > 0) {
+            setApiMatches(matchData.matches);
+            setIsLiveApi(true);
+          }
+        }
+      } catch (e) {
+        console.log('Mode relais actif');
+      }
+    }
+
+    loadDataFromDjango();
+  }, []);
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => setUser(u));
   }, []);
