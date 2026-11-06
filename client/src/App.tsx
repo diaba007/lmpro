@@ -10,6 +10,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -35,7 +36,8 @@ import {
   EyeOff,
   AlertCircle,
   PlusCircle,
-  Crown
+  Crown,
+  ExternalLink
 } from 'lucide-react';
 
 // IMPORTATION DES COMPOSANTS MODULAIRES
@@ -153,7 +155,7 @@ export default function App() {
   });
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [apiMatches, setApiMatches] = useState<Match[]>([]);
+  const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [manualMatches, setManualMatches] = useState<Match[]>(() => {
     const s = localStorage.getItem('lmpro_manual_matches'); return s ? JSON.parse(s) : [];
   });
@@ -232,42 +234,58 @@ export default function App() {
     return onAuthStateChanged(auth, (u) => setUser(u));
   }, []);
 
-  // CHARGEMENT DIRECT DES MATCHS DJANGO + API
+  // FUSION RÉELLE ET SIMULTANÉE : DJANGO (PRIORITÉ) + TOUS LES MATCHS DE L'API VERCEL
   useEffect(() => {
-    async function loadAllMatches() {
-      // 1. Essai de chargement direct depuis Django Render
+    async function loadAllMatchesSimultaneously() {
+      const mergedList: Match[] = [];
+
+      // 1. Charger les matchs ajoutés par Christian dans Django Render
       try {
         const djangoRes = await fetch('https://lmpro-t1jz.onrender.com/api/matches/');
         if (djangoRes.ok) {
           const djangoData = await djangoRes.json();
-          if (djangoData.matches && Array.isArray(djangoData.matches) && djangoData.matches.length > 0) {
-            const formattedDjango = djangoData.matches.map((m: any) => ({
-              ...m,
-              isManual: true
-            }));
-            setApiMatches(formattedDjango);
-            return;
+          if (djangoData.matches && Array.isArray(djangoData.matches)) {
+            djangoData.matches.forEach((m: any) => {
+              mergedList.push({
+                ...m,
+                isManual: true // Badge Analyse Expert
+              });
+            });
           }
         }
       } catch (e) {
-        console.log('Django non contacté, chargement API Vercel');
+        console.log('Django temporairement inaccessible');
       }
 
-      // 2. Repli sur l'API générale Vercel
+      // 2. Charger simultanément tous les matchs réels de l'API (The Odds API + football-data)
       try {
         const res = await fetch('/api/matches');
         if (res.ok) {
           const data = await res.json();
-          if (data.matches && data.matches.length > 0) {
-            setApiMatches(data.matches);
-            return;
+          if (data.matches && Array.isArray(data.matches)) {
+            data.matches.forEach((apiMatch: any) => {
+              // Évite les doublons avec les matchs déjà dans Django
+              const exists = mergedList.some(
+                (existing) => existing.homeTeam?.name?.toLowerCase() === apiMatch.homeTeam?.name?.toLowerCase()
+              );
+              if (!exists) {
+                mergedList.push(apiMatch);
+              }
+            });
           }
         }
       } catch (err) {
-        console.log("Erreur chargement API");
+        console.log("Erreur chargement API Vercel");
+      }
+
+      // 3. Mettre à jour l'application avec TOUS les matchs combinés !
+      if (mergedList.length > 0) {
+        setAllMatches(mergedList);
+        setSelectedMatch((prev) => prev || mergedList[0]);
       }
     }
-    loadAllMatches();
+
+    loadAllMatchesSimultaneously();
   }, []);
 
   const handleCopyCode = (id: string, code: string) => {
@@ -381,6 +399,7 @@ export default function App() {
     const updated = [newM, ...manualMatches];
     setManualMatches(updated);
     localStorage.setItem('lmpro_manual_matches', JSON.stringify(updated));
+    setAllMatches((prev) => [newM, ...prev]);
     setSelectedMatch(newM);
     setAdminNotification(`Le match ${newM.homeTeam.name} vs ${newM.awayTeam.name} a été publié avec votre analyse !`);
     setTimeout(() => setAdminNotification(null), 3500);
@@ -390,6 +409,7 @@ export default function App() {
     const updated = manualMatches.filter(m => m.id !== id);
     setManualMatches(updated);
     localStorage.setItem('lmpro_manual_matches', JSON.stringify(updated));
+    setAllMatches((prev) => prev.filter((m) => m.id !== id));
     if (selectedMatch?.id === id) setSelectedMatch(null);
     setAdminNotification("Match retiré avec succès.");
     setTimeout(() => setAdminNotification(null), 3500);
@@ -471,16 +491,17 @@ export default function App() {
     };
   };
 
-  const allRealMatches = [...manualMatches, ...apiMatches];
+  // Liste globale des matchs combinés (Django + API)
+  const combinedTotalList = [...manualMatches, ...allMatches];
 
   const filteredMatches = selectedLeagueFilter === 'ALL'
-    ? allRealMatches
-    : allRealMatches.filter(m => 
+    ? combinedTotalList
+    : combinedTotalList.filter(m => 
         (m.competition?.code && m.competition.code === selectedLeagueFilter) || 
         (m.competition?.name && m.competition.name.toLowerCase().includes(selectedLeagueFilter.toLowerCase()))
       );
 
-  const activeMatch = selectedMatch || allRealMatches[0] || null;
+  const activeMatch = selectedMatch || combinedTotalList[0] || null;
   const activeAnalysis = activeMatch ? getMatchAnalysis(activeMatch) : null;
   const activeOdds = activeMatch ? getMatchOdds(activeMatch) : null;
 
@@ -654,7 +675,7 @@ export default function App() {
               onChangeMasterPassword={handleChangeMasterPassword}
               onSyncApi={() => {}}
               onPurgeCache={() => {}}
-              availableMatches={allRealMatches}
+              availableMatches={combinedTotalList}
               onArchiveMatch={handleArchiveMatch}
             />
           )}
@@ -819,7 +840,6 @@ export default function App() {
                     const a = getMatchAnalysis(m);
                     if (!a) return null;
 
-                    // Les vrais noms des 2 équipes de CE match précis
                     const currentHomeTeam = m.homeTeam?.name || 'Domicile';
                     const currentAwayTeam = m.awayTeam?.name || 'Extérieur';
                     const currentHomeShort = m.homeTeam?.shortName || currentHomeTeam;
@@ -833,7 +853,6 @@ export default function App() {
 
                     const isMatchLocked = isEuropeanTopLeague && !hasVipAccess;
 
-                    // PRONOSTIC LIÉ STRICTEMENT À CE MATCH PRÉCIS (m)
                     let pick = '';
                     let prob = 0;
                     let type: '1X2' | 'GOALS' | 'BTTS' = '1X2';
@@ -894,12 +913,11 @@ export default function App() {
                             )}
                           </div>
 
-                          {/* TITRE : CE MATCH PRÉCIS */}
                           <div className="font-bold text-white text-sm my-2 truncate">
                             {currentHomeTeam} <span className="text-[#94A3B8] font-normal">vs</span> {currentAwayTeam}
                           </div>
 
-                          {/* PASTILLES DE FORME EN 2 LIGNES PARFAITEMENT DÉDIÉES À CE MATCH */}
+                          {/* FORME RÉCENTE DES ÉQUIPES EN 2 LIGNES */}
                           <div className="my-3 bg-[#081426] p-2.5 rounded-xl border border-[#162C50] space-y-2">
                             <div className="flex items-center justify-between text-xs">
                               <span className="truncate max-w-[130px] font-semibold text-white">
@@ -923,7 +941,7 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* ZONE DU PRONOSTIC STRICTEMENT LIÉE À CE MATCH */}
+                          {/* ZONE DU PRONOSTIC */}
                           {isMatchLocked ? (
                             <div className="relative overflow-hidden rounded-xl border border-amber-400/40 p-4 bg-[#081426] text-center my-2 space-y-2">
                               <div className="absolute inset-0 bg-gradient-to-b from-[#081426]/70 via-[#081426]/90 to-[#081426] backdrop-blur-sm z-10 flex flex-col items-center justify-center p-3">
@@ -1185,7 +1203,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* MODAL DE PAIEMENT SÉPARÉ (WAVE, ORANGE, MTN, MOOV) */}
+      {/* MODAL DE PAIEMENT SÉPARÉ */}
       <VipPaymentModal 
         isOpen={showVipModal}
         onClose={() => setShowVipModal(false)}
