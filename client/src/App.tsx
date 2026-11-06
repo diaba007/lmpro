@@ -234,22 +234,18 @@ export default function App() {
     return onAuthStateChanged(auth, (u) => setUser(u));
   }, []);
 
-  // FUSION RÉELLE ET SIMULTANÉE : DJANGO (PRIORITÉ) + TOUS LES MATCHS DE L'API VERCEL
+  // FUSION RÉELLE : DJANGO (PRIORITÉ) + API VERCEL
   useEffect(() => {
     async function loadAllMatchesSimultaneously() {
       const mergedList: Match[] = [];
 
-      // 1. Charger les matchs ajoutés par Christian dans Django Render
       try {
         const djangoRes = await fetch('https://lmpro-t1jz.onrender.com/api/matches/');
         if (djangoRes.ok) {
           const djangoData = await djangoRes.json();
           if (djangoData.matches && Array.isArray(djangoData.matches)) {
             djangoData.matches.forEach((m: any) => {
-              mergedList.push({
-                ...m,
-                isManual: true // Badge Analyse Expert
-              });
+              mergedList.push({ ...m, isManual: true });
             });
           }
         }
@@ -257,14 +253,12 @@ export default function App() {
         console.log('Django temporairement inaccessible');
       }
 
-      // 2. Charger simultanément tous les matchs réels de l'API (The Odds API + football-data)
       try {
         const res = await fetch('/api/matches');
         if (res.ok) {
           const data = await res.json();
           if (data.matches && Array.isArray(data.matches)) {
             data.matches.forEach((apiMatch: any) => {
-              // Évite les doublons avec les matchs déjà dans Django
               const exists = mergedList.some(
                 (existing) => existing.homeTeam?.name?.toLowerCase() === apiMatch.homeTeam?.name?.toLowerCase()
               );
@@ -278,7 +272,6 @@ export default function App() {
         console.log("Erreur chargement API Vercel");
       }
 
-      // 3. Mettre à jour l'application avec TOUS les matchs combinés !
       if (mergedList.length > 0) {
         setAllMatches(mergedList);
         setSelectedMatch((prev) => prev || mergedList[0]);
@@ -415,7 +408,6 @@ export default function App() {
     setTimeout(() => setAdminNotification(null), 3500);
   };
 
-  // CALCULS DE POISSON DÉDIÉS STRICTEMENT AU MATCH TRANSMIS
   const getMatchAnalysis = (m: Match | null) => {
     if (!m) return null;
     if (m.isManual && m.customAnalysis) {
@@ -491,7 +483,6 @@ export default function App() {
     };
   };
 
-  // Liste globale des matchs combinés (Django + API)
   const combinedTotalList = [...manualMatches, ...allMatches];
 
   const filteredMatches = selectedLeagueFilter === 'ALL'
@@ -506,10 +497,21 @@ export default function App() {
   const activeOdds = activeMatch ? getMatchOdds(activeMatch) : null;
 
   return (
-    <div className="min-h-screen bg-[#081426] text-white flex flex-col md:flex-row font-sans relative">
+    <div className="min-h-screen bg-[#081426] text-white flex flex-col md:flex-row font-sans relative overflow-x-hidden">
       
+      {/* ========================================================================= */}
+      {/* NOUVEAU : FOND D'ÉCRAN DE STADE FIXE AVEC DÉGRADÉ NOIR/BLEU IMMERSIF */}
+      {/* ========================================================================= */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center bg-no-repeat opacity-15"
+        style={{ 
+          backgroundImage: "url('/bg.jpg'), url('https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=2000&auto=format&fit=crop')" 
+        }}
+      />
+      <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#081426]/70 via-[#081426]/90 to-[#081426]" />
+
       {/* Topbar Mobile */}
-      <div className="md:hidden bg-[#081426] border-b border-[#162C50] p-3 flex justify-between items-center">
+      <div className="relative z-10 md:hidden bg-[#081426]/90 backdrop-blur-md border-b border-[#162C50] p-3 flex justify-between items-center">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('dashboard')}>
           <img 
             src="/logo.png" 
@@ -528,7 +530,7 @@ export default function App() {
       </div>
 
       {/* Menu Latéral Desktop */}
-      <aside className={`${mobileMenuOpen ? 'block' : 'hidden'} md:flex flex-col justify-between w-full md:w-64 bg-[#081426] border-r border-[#162C50] shrink-0`}>
+      <aside className={`relative z-20 ${mobileMenuOpen ? 'block' : 'hidden'} md:flex flex-col justify-between w-full md:w-64 bg-[#081426]/95 backdrop-blur-md border-r border-[#162C50] shrink-0`}>
         <div>
           <div 
             className="p-5 border-b border-[#162C50] flex flex-col items-center justify-center text-center cursor-pointer group transition-all"
@@ -617,7 +619,7 @@ export default function App() {
       </aside>
 
       {/* Zone Principale */}
-      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+      <main className="relative z-10 flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         <StickyPromoBar 
           onCopyCode={handleCopyCode} 
           copiedCodeId={copiedCodeId} 
@@ -626,7 +628,7 @@ export default function App() {
 
         <div className="p-6 md:p-8 pt-6 max-w-7xl mx-auto w-full space-y-6">
           {currentPage !== 'dashboard' && (
-            <button onClick={() => navigateTo('dashboard')} className="inline-flex items-center gap-2 bg-[#0D1E38] hover:bg-[#162C50] text-[#94A3B8] hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-bold border border-[#162C50] cursor-pointer transition-all">
+            <button onClick={() => navigateTo('dashboard')} className="inline-flex items-center gap-2 bg-[#0D1E38]/90 backdrop-blur-md hover:bg-[#162C50] text-[#94A3B8] hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-bold border border-[#162C50] cursor-pointer transition-all shadow-md">
               <ArrowLeft size={14} /><span>Retour au Tableau de Bord</span>
             </button>
           )}
@@ -641,7 +643,7 @@ export default function App() {
             activeMatch && activeAnalysis && activeOdds ? (
               <MatchAnalysisView match={activeMatch} analysis={activeAnalysis} odds={activeOdds} partners={partners} onOpenAI={() => setIsAiOpen(true)} />
             ) : (
-              <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-12 text-center max-w-lg mx-auto my-6 space-y-3">
+              <div className="bg-[#0D1E38]/90 backdrop-blur-md border border-[#162C50] rounded-2xl p-12 text-center max-w-lg mx-auto my-6 space-y-3">
                 <LineChart size={32} className="mx-auto text-[#0066FF]" />
                 <h2 className="text-base font-bold text-white">Aucun match sélectionné pour l'analyse</h2>
                 <button onClick={() => navigateTo('dashboard')} className="px-4 py-2 bg-[#0066FF] text-white text-xs font-bold rounded-xl cursor-pointer">
@@ -683,7 +685,7 @@ export default function App() {
           {/* TABLEAU DE BORD / MATCHS DU JOUR */}
           {(currentPage === 'dashboard' || currentPage === 'matches') && (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-[#0D1E38] via-[#081426] to-[#0D1E38] p-6 rounded-2xl border border-[#162C50] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="bg-gradient-to-r from-[#0D1E38]/90 via-[#081426]/90 to-[#0D1E38]/90 backdrop-blur-md p-6 rounded-2xl border border-[#162C50] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xl">
                 <div>
                   <h1 className="text-2xl font-black text-white">Plateforme d'Analyse Footballistique</h1>
                   <p className="text-xs text-[#94A3B8] mt-1">« Analysez mieux. Comprenez le football. » — Moteur Poisson & Forme Réelle.</p>
@@ -709,8 +711,8 @@ export default function App() {
                   <button
                     key={l.code}
                     onClick={() => setSelectedLeagueFilter(l.code)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap border cursor-pointer transition-all ${
-                      selectedLeagueFilter === l.code ? 'bg-[#0066FF] text-white border-[#0066FF] shadow-md shadow-[#0066FF]/30' : 'bg-[#0D1E38] text-[#94A3B8] border-[#162C50] hover:text-white hover:border-[#94A3B8]'
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap border cursor-pointer transition-all backdrop-blur-md ${
+                      selectedLeagueFilter === l.code ? 'bg-[#0066FF] text-white border-[#0066FF] shadow-md shadow-[#0066FF]/30' : 'bg-[#0D1E38]/80 text-[#94A3B8] border-[#162C50] hover:text-white hover:border-[#94A3B8]'
                     }`}
                   >
                     <span>{l.flag}</span><span>{l.name}</span>
@@ -719,7 +721,7 @@ export default function App() {
               </div>
 
               {/* Matchs du jour réels */}
-              <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6">
+              <div className="bg-[#0D1E38]/90 backdrop-blur-md border border-[#162C50] rounded-2xl p-6 shadow-xl">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
                     Rencontres : {selectedLeagueFilter === 'ALL' ? 'Toutes les Compétitions' : selectedLeagueFilter}
@@ -759,7 +761,7 @@ export default function App() {
                         <div 
                           key={m.id} 
                           onClick={() => { setSelectedMatch(m); navigateTo('analysis'); }} 
-                          className="bg-[#081426] border border-[#162C50] hover:border-[#0066FF] rounded-xl p-5 cursor-pointer flex flex-col justify-between transition-all duration-200 hover:shadow-xl hover:shadow-[#0066FF]/10 group"
+                          className="bg-[#081426]/90 backdrop-blur-md border border-[#162C50] hover:border-[#0066FF] rounded-xl p-5 cursor-pointer flex flex-col justify-between transition-all duration-200 hover:shadow-xl hover:shadow-[#0066FF]/10 group"
                         >
                           <div className="flex justify-between text-xs text-[#94A3B8] pb-2 border-b border-[#162C50]">
                             <span className="font-semibold">{m.competition?.name || 'Football'}</span>
@@ -793,7 +795,7 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE PRONOSTICS PRO STRICTEMENT LIÉE AU MATCH EN COURS */}
+          {/* PAGE PRONOSTICS PRO */}
           {currentPage === 'predictions' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -814,7 +816,7 @@ export default function App() {
                       <Crown size={15} /> Débloquer Tout le VIP
                     </button>
                   )}
-                  <div className="flex bg-[#0D1E38] p-1 rounded-xl border border-[#162C50]">
+                  <div className="flex bg-[#0D1E38]/90 backdrop-blur-md p-1 rounded-xl border border-[#162C50]">
                     {(['ALL', '1X2', 'GOALS', 'BTTS'] as const).map((m) => (
                       <button
                         key={m}
@@ -831,7 +833,7 @@ export default function App() {
               </div>
 
               {filteredMatches.length === 0 ? (
-                <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-10 text-center text-[#94A3B8] text-xs">
+                <div className="bg-[#0D1E38]/90 backdrop-blur-md border border-[#162C50] rounded-2xl p-10 text-center text-[#94A3B8] text-xs">
                   Aucun pronostic à afficher pour l'instant. Publiez des rencontres depuis la Console Admin pour activer les calculs.
                 </div>
               ) : (
@@ -895,7 +897,7 @@ export default function App() {
                     return (
                       <div 
                         key={idx} 
-                        className={`bg-[#0D1E38] border rounded-2xl p-5 flex flex-col justify-between transition-all ${
+                        className={`bg-[#0D1E38]/90 backdrop-blur-md border rounded-2xl p-5 flex flex-col justify-between transition-all ${
                           isEuropeanTopLeague ? 'border-amber-400/40 hover:border-amber-400 shadow-lg shadow-amber-400/5' : 'border-[#162C50] hover:border-[#0066FF]'
                         }`}
                       >
@@ -918,7 +920,7 @@ export default function App() {
                           </div>
 
                           {/* FORME RÉCENTE DES ÉQUIPES EN 2 LIGNES */}
-                          <div className="my-3 bg-[#081426] p-2.5 rounded-xl border border-[#162C50] space-y-2">
+                          <div className="my-3 bg-[#081426]/90 p-2.5 rounded-xl border border-[#162C50] space-y-2">
                             <div className="flex items-center justify-between text-xs">
                               <span className="truncate max-w-[130px] font-semibold text-white">
                                 {currentHomeShort}
@@ -957,7 +959,7 @@ export default function App() {
                               </div>
                             </div>
                           ) : (
-                            <div className="bg-[#081426] border border-[#162C50] p-3 rounded-xl text-xs space-y-1">
+                            <div className="bg-[#081426]/90 border border-[#162C50] p-3 rounded-xl text-xs space-y-1">
                               <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">
                                 {isEuropeanTopLeague ? '👑 Sélection VIP Débloquée :' : `Sélection Optimale (${type}) :`}
                               </span>
@@ -1003,7 +1005,7 @@ export default function App() {
           {currentPage === 'profile' && (
             <div className="max-w-xl mx-auto space-y-6">
               {!user ? (
-                <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 sm:p-8 space-y-5 shadow-2xl">
+                <div className="bg-[#0D1E38]/90 backdrop-blur-md border border-[#162C50] rounded-2xl p-6 sm:p-8 space-y-5 shadow-2xl">
                   <div className="flex bg-[#081426] p-1 rounded-xl border border-[#162C50]">
                     <button 
                       onClick={() => { setAuthMode('LOGIN'); setAuthError(null); }} 
@@ -1158,7 +1160,7 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="bg-[#0D1E38] border border-[#162C50] rounded-2xl p-6 flex items-center justify-between">
+                  <div className="bg-[#0D1E38]/90 backdrop-blur-md border border-[#162C50] rounded-2xl p-6 flex items-center justify-between shadow-xl">
                     <div>
                       <h2 className="text-base font-bold text-white">{user.displayName || user.email}</h2>
                       <p className="text-xs text-[#94A3B8]">{user.email}</p>
@@ -1179,7 +1181,7 @@ export default function App() {
                   </div>
 
                   {!hasVipAccess && (
-                    <div className="bg-gradient-to-r from-amber-400/10 via-[#0D1E38] to-amber-400/10 border border-amber-400/40 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="bg-gradient-to-r from-amber-400/10 via-[#0D1E38]/90 to-amber-400/10 backdrop-blur-md border border-amber-400/40 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
                       <div>
                         <h3 className="text-sm font-black text-white flex items-center gap-1.5">
                           <Crown size={16} className="text-amber-400" /> Passez à LMPRO VIP Europe
@@ -1224,7 +1226,7 @@ export default function App() {
 
       {/* Tiroir IA */}
       {isAiOpen && (
-        <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-[#081426] border-l border-[#162C50] z-50 flex flex-col shadow-2xl">
+        <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-[#081426]/95 backdrop-blur-md border-l border-[#162C50] z-50 flex flex-col shadow-2xl">
           <div className="p-4 bg-[#0D1E38] border-b border-[#162C50] flex items-center justify-between">
             <h3 className="text-xs font-bold text-white flex items-center gap-1"><Bot size={16} /> Analyste Tactique LMPRO</h3>
             <button onClick={() => setIsAiOpen(false)} className="text-[#94A3B8] hover:text-white cursor-pointer"><X size={18} /></button>
