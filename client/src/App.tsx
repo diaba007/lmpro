@@ -35,8 +35,7 @@ import {
   EyeOff,
   AlertCircle,
   PlusCircle,
-  Crown,
-  ExternalLink
+  Crown
 } from 'lucide-react';
 
 // IMPORTATION DES COMPOSANTS MODULAIRES
@@ -147,7 +146,6 @@ function getTeamStats(name: string) {
 }
 
 export default function App() {
-  // Détecte si l'URL courante contient #admin (pour ouvrir l'admin dans un onglet dédié)
   const [currentPage, setCurrentPage] = useState<PageId>(() => {
     const hash = window.location.hash.replace('#', '');
     const validPages: PageId[] = ['dashboard', 'matches', 'analysis', 'predictions', 'history', 'partners', 'profile', 'admin'];
@@ -162,7 +160,6 @@ export default function App() {
   const [selectedLeagueFilter, setSelectedLeagueFilter] = useState('ALL');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  // VIP & MODAL DE PAIEMENT SÉPARÉ
   const [isVipMember, setIsVipMember] = useState<boolean>(() => {
     return localStorage.getItem('lmpro_vip_member') === 'true';
   });
@@ -218,82 +215,45 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // OUVRE L'ADMINISTRATION DANS UNE NOUVELLE FENÊTRE/ONGLET DÉDIÉ
   const openAdminInNewWindow = () => {
     window.open('/#admin', '_blank', 'noopener,noreferrer');
   };
 
-  // CHARGEMENT EN DIRECT DEPUIS VOTRE API DJANGO RENDER
-  // CHARGEMENT AUTOMATIQUE DIRECT DEPUIS DJANGO (PRIORITÉ N°1)
   useEffect(() => {
-    async function loadDataFromDjango() {
-      // 1. Charger les partenaires et codes promos depuis Django
-      try {
-        const res = await fetch('https://lmpro-t1jz.onrender.com/api/partners/');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.partners && Array.isArray(data.partners) && data.partners.length > 0) {
-            const formatted = data.partners.map((p: any) => ({
-              id: p.name.toLowerCase().replace(/\s+/g, ''),
-              name: p.name,
-              bonus: p.bonus_text,
-              bonusTitle: "Offre vérifiée",
-              bonusHighlight: p.bonus_text,
-              bonusSub: "",
-              promoCode: p.promo_code,
-              url: p.affiliate_url,
-              badge: p.name.toUpperCase().includes('MELBET') ? 'TOP BONUS AFRIQUE' : 'OFFICIEL',
-              bgColor: p.bg_color || '#F3A000',
-              btnTextColor: p.bg_color === '#F3A000' ? '#1A1A1A' : '#FFFFFF'
-            }));
-            setPartners(formatted);
-          }
-        }
-      } catch (e) {
-        console.log('Utilisation des partenaires locaux de secours');
-      }
-
-      // 2. CHARGER LES MATCHS DJANGO DIRECTEMENT (AFFICHAGE IMMÉDIAT SANS VALIDATION !)
-      try {
-        const matchRes = await fetch('https://lmpro-t1jz.onrender.com/api/matches/');
-        if (matchRes.ok) {
-          const matchData = await matchRes.json();
-          if (matchData.matches && Array.isArray(matchData.matches) && matchData.matches.length > 0) {
-            const djangoMatches = matchData.matches.map((m: any) => ({
-              ...m,
-              isManual: true // Active automatiquement le badge "ANALYSE EXPERT"
-            }));
-            setApiMatches(djangoMatches);
-            setIsLiveApi(true);
-            setSelectedMatch(djangoMatches[0]);
-            return;
-          }
-        }
-      } catch (e) {
-        console.log('Django sans match pour le moment, passage au flux secondaire');
-      }
-
-      // 3. Repli automatique sur l'API externe si aucun match n'est dans Django
-      try {
-        const res = await fetch('/api/matches');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.matches && data.matches.length > 0) {
-            setApiMatches(data.matches);
-            setIsLiveApi(true);
-          }
-        }
-      } catch (err) {}
+    if (!window.location.hash) {
+      window.history.replaceState({ page: 'dashboard' }, '', '/#dashboard');
     }
-
-    loadDataFromDjango();
+    const onPop = (e: any) => setCurrentPage(e.state?.page || 'dashboard');
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
+
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => setUser(u));
   }, []);
 
+  // CHARGEMENT DIRECT DES MATCHS DJANGO + API
   useEffect(() => {
-    async function loadLiveMatches() {
+    async function loadAllMatches() {
+      // 1. Essai de chargement direct depuis Django Render
+      try {
+        const djangoRes = await fetch('https://lmpro-t1jz.onrender.com/api/matches/');
+        if (djangoRes.ok) {
+          const djangoData = await djangoRes.json();
+          if (djangoData.matches && Array.isArray(djangoData.matches) && djangoData.matches.length > 0) {
+            const formattedDjango = djangoData.matches.map((m: any) => ({
+              ...m,
+              isManual: true
+            }));
+            setApiMatches(formattedDjango);
+            return;
+          }
+        }
+      } catch (e) {
+        console.log('Django non contacté, chargement API Vercel');
+      }
+
+      // 2. Repli sur l'API générale Vercel
       try {
         const res = await fetch('/api/matches');
         if (res.ok) {
@@ -304,10 +264,10 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.log("Relais actif : attente API.");
+        console.log("Erreur chargement API");
       }
     }
-    loadLiveMatches();
+    loadAllMatches();
   }, []);
 
   const handleCopyCode = (id: string, code: string) => {
@@ -435,10 +395,12 @@ export default function App() {
     setTimeout(() => setAdminNotification(null), 3500);
   };
 
-  // CALCULS DE POISSON SUR LA FORME RÉELLE
+  // CALCULS DE POISSON DÉDIÉS STRICTEMENT AU MATCH TRANSMIS
   const getMatchAnalysis = (m: Match | null) => {
     if (!m) return null;
     if (m.isManual && m.customAnalysis) {
+      const hStats = getTeamStats(m.homeTeam.name);
+      const aStats = getTeamStats(m.awayTeam.name);
       return {
         homeWin: m.customAnalysis.prob1,
         draw: m.customAnalysis.probX,
@@ -448,8 +410,8 @@ export default function App() {
         over15: 75,
         over25: 52,
         btts: 53,
-        homeForm: ['W', 'D', 'W', 'W', 'D'] as ('W' | 'D' | 'L')[],
-        awayForm: ['L', 'D', 'L', 'W', 'L'] as ('W' | 'D' | 'L')[],
+        homeForm: hStats.form,
+        awayForm: aStats.form,
       };
     }
 
@@ -810,7 +772,7 @@ export default function App() {
             </div>
           )}
 
-          {/* PAGE PRONOSTICS PRO AVEC CADENAS VIP SUR LES MEILLEURS CHAMPIONNATS */}
+          {/* PAGE PRONOSTICS PRO STRICTEMENT LIÉE AU MATCH EN COURS */}
           {currentPage === 'predictions' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -819,7 +781,7 @@ export default function App() {
                     <Target className="text-[#0066FF]" /> Pronostics Statistiques & Sélections VIP
                   </h1>
                   <p className="text-xs text-[#94A3B8]">
-                    Les championnats européens majeurs sont réservés aux membres VIP LMPRO.
+                    Analyses calculées selon l'indice de forme des 5 derniers matchs et le rapport de force réel.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -857,6 +819,12 @@ export default function App() {
                     const a = getMatchAnalysis(m);
                     if (!a) return null;
 
+                    // Les vrais noms des 2 équipes de CE match précis
+                    const currentHomeTeam = m.homeTeam?.name || 'Domicile';
+                    const currentAwayTeam = m.awayTeam?.name || 'Extérieur';
+                    const currentHomeShort = m.homeTeam?.shortName || currentHomeTeam;
+                    const currentAwayShort = m.awayTeam?.shortName || currentAwayTeam;
+
                     const compCode = m.competition?.code || '';
                     const compName = m.competition?.name || '';
                     const isEuropeanTopLeague = 
@@ -865,18 +833,19 @@ export default function App() {
 
                     const isMatchLocked = isEuropeanTopLeague && !hasVipAccess;
 
+                    // PRONOSTIC LIÉ STRICTEMENT À CE MATCH PRÉCIS (m)
                     let pick = '';
                     let prob = 0;
                     let type: '1X2' | 'GOALS' | 'BTTS' = '1X2';
                     let conf = 'Élevée';
 
                     if (a.awayWin >= 52) {
-                      pick = `Victoire ${m.awayTeam.name} (2)`;
+                      pick = `Victoire ${currentAwayTeam} (2)`;
                       prob = a.awayWin;
                       type = '1X2';
                       conf = a.awayWin > 65 ? 'Très Élevée' : 'Élevée';
                     } else if (a.homeWin >= 52) {
-                      pick = `Victoire ${m.homeTeam.name} (1)`;
+                      pick = `Victoire ${currentHomeTeam} (1)`;
                       prob = a.homeWin;
                       type = '1X2';
                       conf = a.homeWin > 65 ? 'Très Élevée' : 'Élevée';
@@ -895,8 +864,8 @@ export default function App() {
                       conf = 'Très Élevée';
                     } else {
                       pick = a.awayWin > a.homeWin 
-                        ? `Double Chance X2 (${m.awayTeam.shortName || m.awayTeam.name} ou Nul)` 
-                        : `Double Chance 1X (${m.homeTeam.shortName || m.homeTeam.name} ou Nul)`;
+                        ? `Double Chance X2 (${currentAwayShort} ou Nul)` 
+                        : `Double Chance 1X (${currentHomeShort} ou Nul)`;
                       prob = a.awayWin > a.homeWin ? (a.awayWin + a.draw) : (a.homeWin + a.draw);
                       type = '1X2';
                       conf = 'Sécurisée';
@@ -925,15 +894,16 @@ export default function App() {
                             )}
                           </div>
 
+                          {/* TITRE : CE MATCH PRÉCIS */}
                           <div className="font-bold text-white text-sm my-2 truncate">
-                            {m.homeTeam.name} <span className="text-[#94A3B8] font-normal">vs</span> {m.awayTeam.name}
+                            {currentHomeTeam} <span className="text-[#94A3B8] font-normal">vs</span> {currentAwayTeam}
                           </div>
 
-                          {/* FORME RÉCENTE DES ÉQUIPES EN 2 LIGNES */}
+                          {/* PASTILLES DE FORME EN 2 LIGNES PARFAITEMENT DÉDIÉES À CE MATCH */}
                           <div className="my-3 bg-[#081426] p-2.5 rounded-xl border border-[#162C50] space-y-2">
                             <div className="flex items-center justify-between text-xs">
                               <span className="truncate max-w-[130px] font-semibold text-white">
-                                {m.homeTeam.shortName || m.homeTeam.name}
+                                {currentHomeShort}
                               </span>
                               <div className="flex items-center gap-1 shrink-0">
                                 {a.homeForm.map((f, i) => (
@@ -943,7 +913,7 @@ export default function App() {
                             </div>
                             <div className="flex items-center justify-between text-xs pt-1.5 border-t border-[#162C50]/60">
                               <span className="truncate max-w-[130px] font-semibold text-white">
-                                {m.awayTeam.shortName || m.awayTeam.name}
+                                {currentAwayShort}
                               </span>
                               <div className="flex items-center gap-1 shrink-0">
                                 {a.awayForm.map((f, i) => (
@@ -953,7 +923,7 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* ZONE PRONOSTIC : FLOU SI VERROUILLÉ */}
+                          {/* ZONE DU PRONOSTIC STRICTEMENT LIÉE À CE MATCH */}
                           {isMatchLocked ? (
                             <div className="relative overflow-hidden rounded-xl border border-amber-400/40 p-4 bg-[#081426] text-center my-2 space-y-2">
                               <div className="absolute inset-0 bg-gradient-to-b from-[#081426]/70 via-[#081426]/90 to-[#081426] backdrop-blur-sm z-10 flex flex-col items-center justify-center p-3">
@@ -1254,7 +1224,7 @@ export default function App() {
             const q = inputQuestion;
             setInputQuestion('');
             const currentName = activeMatch ? `${activeMatch.homeTeam.name} vs ${activeMatch.awayTeam.name}` : 'les rencontres actives';
-            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après nos données réelles sur ${currentName}, nous combinons la dynamique récente et le rapport de force. Profitez des codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldpari: XPRO225) !` }]);
+            setChatMessages(prev => [...prev, { role: 'user', text: q }, { role: 'bot', text: `D'après nos données réelles sur ${currentName}, nous surveillons de près l'espérance de buts. Utilisez les codes promos (Melbet: XPRO225, Betwinner: DKC10, Betclic: XPRONO, Goldpari: XPRO225) pour vos mises !` }]);
           }} className="p-3 bg-[#0D1E38] border-t border-[#162C50] flex gap-2">
             <input type="text" value={inputQuestion} onChange={(e) => setInputQuestion(e.target.value)} placeholder="Votre question..." className="flex-1 bg-[#081426] border border-[#162C50] rounded-xl px-3 py-2 text-xs text-white outline-none" />
             <button type="submit" className="bg-[#0066FF] text-white p-2.5 rounded-xl cursor-pointer hover:bg-[#0052CC]"><Send size={14} /></button>
