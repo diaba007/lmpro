@@ -8,7 +8,7 @@ body {
   background-color: #081426;
   background-image: 
     linear-gradient(to bottom, rgba(8, 20, 38, 0.65), rgba(8, 20, 38, 0.90)), 
-    url('/bg.jpg'), 
+    url('/bg.png'), 
     url('https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=2000&auto=format&fit=crop') !important;
   background-size: cover !important;
   background-position: center !important;
